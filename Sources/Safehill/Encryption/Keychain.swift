@@ -166,14 +166,4 @@ struct SHKeychain {
         case let status: throw SHKeychain.Error.unexpectedStatus(status)
         }
     }
-    
-    static func generateKey(withLabel label: String) throws -> SecKeyConvertible {
-        let key: P256.KeyAgreement.PrivateKey
-//        if let key = try SHKeychain.retrieveKey(label: keyTagPrefix + label) as? P256.KeyAgreement.PrivateKey {
-//            return key
-//        }
-        key = P256.KeyAgreement.PrivateKey()
-        try SHKeychain.storeKey(key, label: keyTagPrefix + label)
-        return key
-    }
 }

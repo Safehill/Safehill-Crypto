@@ -13,15 +13,45 @@ public struct SHUser {
         self.privateSignature.publicKey
     }
     
-    /// Generates a set of keys for encryption and signing
+    static func generateKey() -> P256.KeyAgreement.PrivateKey {
+        return P256.KeyAgreement.PrivateKey()
+    }
+    
+    static func generateSignature() -> P256.Signing.PrivateKey {
+        return P256.Signing.PrivateKey()
+    }
+    
+    /// Generates a new set of keys for encryption and signing
     init() {
-        self.privateKey = P256.KeyAgreement.PrivateKey()
-        self.privateSignature = P256.Signing.PrivateKey()
+        self.privateKey = SHUser.generateKey()
+        self.privateSignature = SHUser.generateSignature()
     }
     
     init(key: P256.KeyAgreement.PrivateKey, signature: P256.Signing.PrivateKey) {
         self.privateKey = key
         self.privateSignature = signature
+    }
+    
+    init(usingKeychainEntryWithLabel label: String) throws {
+        let privateKey = try SHKeychain.retrieveKey(label: label + ".key") as P256.KeyAgreement.PrivateKey?
+        let privateSignature = try SHKeychain.retrieveKey(label: label + ".signature") as P256.Signing.PrivateKey?
+        
+        guard let pk = privateKey, let sig = privateSignature  else {
+            if privateKey == nil {
+                throw SHKeychain.Error.generic("No entry in keychain for \(label).key")
+            } else if privateSignature == nil {
+                throw SHKeychain.Error.generic("No entry in keychain for \(label).signature")
+            } else {
+                throw SHKeychain.Error.generic("No entry in keychain with label \(label)(.key|.signature)")
+            }
+        }
+        
+        self.init(key: pk, signature: sig)
+    }
+    
+    func saveToKeychain(withLabel label: String) throws {
+        try SHKeychain.storeKey(privateKey, label: label + ".key")
+        try SHKeychain.storeKey(privateSignature, label: label + ".signature")
     }
 }
 

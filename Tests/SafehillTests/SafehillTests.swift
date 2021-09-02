@@ -112,4 +112,14 @@ final class SafehillTests: XCTestCase {
         XCTAssertEqual(originalString, decryptedString)
     }
     
+    func testKeychain() throws {
+        let alice = SHUser()
+        try alice.saveToKeychain(withLabel: "alice")
+        
+        let alice2 = try SHUser(usingKeychainEntryWithLabel: "alice")
+        
+        XCTAssertTrue(alice.publicKey.compactRepresentation == alice2.publicKey.compactRepresentation)
+        XCTAssertTrue(alice.signature.compactRepresentation == alice2.signature.compactRepresentation)
+    }
+    
 }
