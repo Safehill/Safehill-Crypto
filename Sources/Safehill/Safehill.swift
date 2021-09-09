@@ -22,7 +22,7 @@ public struct SHUser {
     }
     
     /// Generates a new set of keys for encryption and signing
-    init() {
+    public init() {
         self.privateKey = SHUser.generateKey()
         self.privateSignature = SHUser.generateSignature()
     }
@@ -32,7 +32,7 @@ public struct SHUser {
         self.privateSignature = signature
     }
     
-    init(usingKeychainEntryWithLabel label: String) throws {
+    public init(usingKeychainEntryWithLabel label: String) throws {
         let privateKey = try SHKeychain.retrieveKey(label: label + ".key") as P256.KeyAgreement.PrivateKey?
         let privateSignature = try SHKeychain.retrieveKey(label: label + ".signature") as P256.Signing.PrivateKey?
         
@@ -49,16 +49,16 @@ public struct SHUser {
         self.init(key: pk, signature: sig)
     }
     
-    func saveToKeychain(withLabel label: String) throws {
+    public func saveToKeychain(withLabel label: String) throws {
         try SHKeychain.storeKey(privateKey, label: label + ".key")
         try SHKeychain.storeKey(privateSignature, label: label + ".signature")
     }
 }
 
 public struct SHShareablePayload {
-    let ephemeralPublicKeyData: Data
-    let cyphertext: Data
-    let signature: Data
+    public let ephemeralPublicKeyData: Data
+    public let cyphertext: Data
+    public let signature: Data
     let recipient: SHUser?
     
     init(ephemeralPublicKeyData: Data,
@@ -70,22 +70,19 @@ public struct SHShareablePayload {
         self.signature = signature
         self.recipient = recipient
     }
-    
-    func toTuple() -> ((ephemeralPublicKeyData: Data, cyphertext: Data, signature: Data)) {
-        return (self.ephemeralPublicKeyData, self.cyphertext, self.signature)
-    }
 }
 
 public struct SHEncryptedData {
-    fileprivate let privateSecret: SymmetricKey
+    /// privateSecret should never be shared
+    public let privateSecret: SymmetricKey
     public let encryptedData: Data
     
-    init(privateSecret: SymmetricKey, data: Data) {
+    public init(privateSecret: SymmetricKey, data: Data) {
         self.privateSecret = privateSecret
         self.encryptedData = data
     }
     
-    init(clearData: Data) throws {
+    public init(clearData: Data) throws {
         let secret = SymmetricKey(size: .bits256)
         self.init(privateSecret: secret,
                   data: try SHCypher.encrypt(clearData, using: secret))
@@ -95,20 +92,26 @@ public struct SHEncryptedData {
 public struct SHContext {
     let myUser: SHUser
     
-    func share(secret: SHEncryptedData, with user: SHUser) throws -> SHShareablePayload {
-        let encrypted = try SHCypher.encrypt(secret.privateSecret.rawRepresentation,
+    public init(user: SHUser) {
+        self.myUser = user
+    }
+    
+    public func shareable(data: Data, with user: SHUser) throws -> SHShareablePayload {
+        let ephemeralKey = P256.KeyAgreement.PrivateKey()
+        let encrypted = try SHCypher.encrypt(data,
                                              to: user.publicKey,
+                                             using: ephemeralKey,
                                              signedBy: myUser.privateSignature)
-        return SHShareablePayload(ephemeralPublicKeyData: encrypted.ephemeralPublicKeyData,
+        return SHShareablePayload(ephemeralPublicKeyData: ephemeralKey.publicKey.rawRepresentation,
                                   cyphertext: encrypted.cyphertext,
                                   signature: encrypted.signature,
                                   recipient: user)
     }
     
-    func decrypt(_ data: Data,
-                 usingEncryptedSecret encryptedSecret: SHShareablePayload,
-                 receivedFrom sender: SHUser) throws -> Data {
-        let secretData = try SHCypher.decrypt(encryptedSecret.toTuple(),
+    public func decrypt(_ data: Data,
+                        usingEncryptedSecret encryptedSecret: SHShareablePayload,
+                        receivedFrom sender: SHUser) throws -> Data {
+        let secretData = try SHCypher.decrypt(encryptedSecret,
                                               using: myUser.privateKey,
                                               from: sender.signature)
         let secret = try SymmetricKey(rawRepresentation: secretData)

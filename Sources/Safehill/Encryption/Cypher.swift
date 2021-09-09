@@ -38,16 +38,19 @@ struct SHCypher {
 
     static func encrypt(_ data: Data,
                         to theirEncryptionKey: P256.KeyAgreement.PublicKey,
-                        signedBy ourSigningKey: P256.Signing.PrivateKey) throws -> (ephemeralPublicKeyData: Data, cyphertext: Data, signature: Data) {
-        let ephemeralKey = P256.KeyAgreement.PrivateKey()
-        let ephemeralPublicKey = ephemeralKey.publicKey.rawRepresentation
+                        using ephemeralKey: P256.KeyAgreement.PrivateKey,
+                        signedBy ourSigningKey: P256.Signing.PrivateKey) throws -> SHShareablePayload {
         let symmetricKey = try SHCypher.deriveSymmetricKey(privateKey: ephemeralKey,
                                                            publicKey: theirEncryptionKey,
                                                            signedBy: ourSigningKey)
         let cypher = try SHCypher.encrypt(data, using: symmetricKey)
-        let signature = try ourSigningKey.signature(for: cypher + ephemeralPublicKey + theirEncryptionKey.rawRepresentation)
+        let signature = try ourSigningKey.signature(for: cypher +
+                                                       ephemeralKey.publicKey.rawRepresentation +
+                                                       theirEncryptionKey.rawRepresentation)
         
-        return (ephemeralPublicKey, cypher, signature.rawRepresentation)
+        return SHShareablePayload(ephemeralPublicKeyData: ephemeralKey.publicKey.rawRepresentation,
+                                  cyphertext: cypher,
+                                  signature: signature.rawRepresentation)
     }
 
 
@@ -57,9 +60,9 @@ struct SHCypher {
     }
 
     
-    static func decrypt(_ sealedMessage: (ephemeralPublicKeyData: Data, cyphertext: Data, signature: Data),
-                 using ourKeyEncryptionKey: P256.KeyAgreement.PrivateKey,
-                 from theirSigningKey: P256.Signing.PublicKey) throws -> Data {
+    static func decrypt(_ sealedMessage: SHShareablePayload,
+                        using ourKeyEncryptionKey: P256.KeyAgreement.PrivateKey,
+                        from theirSigningKey: P256.Signing.PublicKey) throws -> Data {
         let data = sealedMessage.cyphertext + sealedMessage.ephemeralPublicKeyData + ourKeyEncryptionKey.publicKey.rawRepresentation
         let signature = try P256.Signing.ECDSASignature(rawRepresentation: sealedMessage.signature)
         guard theirSigningKey.isValidSignature(signature, for: data) else {

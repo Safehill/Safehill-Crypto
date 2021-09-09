@@ -20,7 +20,8 @@ final class SafehillTests: XCTestCase {
     func testEncryptDecryptWithPublicKeySignature() throws {
         let originalString = "This is a test"
         let d1 = originalString.data(using: .utf8)!
-        // Alice's keys
+        // Alice's keys and signature
+        let ephemeralSecret = P256.KeyAgreement.PrivateKey()
         let Asignature = P256.Signing.PrivateKey()
         // Bob's keys
         let PB = P256.KeyAgreement.PrivateKey()
@@ -30,6 +31,7 @@ final class SafehillTests: XCTestCase {
         let Ed1 = try SHCypher.encrypt(d1, using: Pd1)
         let EBPd1 = try SHCypher.encrypt(Pd1.rawRepresentation,
                                          to: PB.publicKey,
+                                         using: ephemeralSecret,
                                          signedBy: Asignature)
         
         /*
@@ -47,8 +49,8 @@ final class SafehillTests: XCTestCase {
     func testShareablePayloadAliceAndBob() throws {
         let alice = SHUser()
         let bob = SHUser()
-        let aliceContext = SHContext(myUser: alice)
-        let bobContext = SHContext(myUser: bob)
+        let aliceContext = SHContext(user: alice)
+        let bobContext = SHContext(user: bob)
         
         /** Alice uploads encrypted content for Bob (and only Bob) to decrypt*/
         let originalString = "This is a test"
@@ -56,7 +58,7 @@ final class SafehillTests: XCTestCase {
         let encryptedData = try SHEncryptedData(clearData: stringAsData)
         // upload encrypted data
         
-        let encryptedSecret = try aliceContext.share(secret: encryptedData, with: bob)
+        let encryptedSecret = try aliceContext.shareable(data: encryptedData.privateSecret.rawRepresentation, with: bob)
         // upload encrypted secret
         
         /** Once Bob gets encryptedData, encryptedSecret  */
@@ -69,12 +71,12 @@ final class SafehillTests: XCTestCase {
         
         /** Ensure another user in possession of Alice's signature and public key can NOT decrypt that content */
         let hacker = SHUser()
-        let hackerContext = SHContext(myUser: hacker)
+        let hackerContext = SHContext(user: hacker)
         
         do {
             let _ = try hackerContext.decrypt(encryptedData.encryptedData,
-                                                       usingEncryptedSecret: encryptedSecret,
-                                                       receivedFrom: alice)
+                                              usingEncryptedSecret: encryptedSecret,
+                                              receivedFrom: alice)
             XCTFail()
         } catch SHCypher.DecryptionError.authenticationError {
             print("Authentication failed for hacker")
@@ -99,8 +101,8 @@ final class SafehillTests: XCTestCase {
         let encryptedData = try SHEncryptedData(clearData: stringAsData)
         // upload encrypted data
         
-        let aliceContext = SHContext(myUser: alice)
-        let encryptedSecret = try aliceContext.share(secret: encryptedData, with: alice)
+        let aliceContext = SHContext(user: alice)
+        let encryptedSecret = try aliceContext.shareable(data: encryptedData.privateSecret.rawRepresentation, with: alice)
         // upload encrypted secret
         
         /** Once Bob gets encryptedData, encryptedSecret  */
@@ -112,7 +114,7 @@ final class SafehillTests: XCTestCase {
         XCTAssertEqual(originalString, decryptedString)
     }
     
-    func testKeychain() throws {
+    func _testKeychain() throws {
         let alice = SHUser()
         try alice.saveToKeychain(withLabel: "alice")
         

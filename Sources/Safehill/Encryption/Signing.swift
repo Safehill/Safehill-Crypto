@@ -7,52 +7,101 @@
 
 import Foundation
 import CryptoKit
+import LocalAuthentication
 
-func digest(for data: Data) -> SHA512Digest {
-    return SHA512.hash(data: data)
+public struct SHHash {
+    
+    public static func stringDigest(for data: Data) -> String {
+        return SHA512.hash(data: data).compactMap { String(format: "%02hhx", $0) }.joined()
+    }
+    
+    public static func dataDigest(for data: Data) -> Data {
+        return SHA512.hash(data: data).withUnsafeBytes {
+            return Data(Array($0))
+        }
+    }
+    
+    private static func digest(forFileAtPath path: String) -> SHA512.Digest {
+        var hasher = SHA512()
+        let stream = InputStream(fileAtPath: path)!
+        stream.open()
+        let bufferSize = 512
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        while stream.hasBytesAvailable {
+            let read = stream.read(buffer, maxLength: bufferSize)
+            let bufferPointer = UnsafeRawBufferPointer(start: buffer,
+                                                       count: read)
+            hasher.update(bufferPointer: bufferPointer)
+        }
+        return hasher.finalize()
+    }
+    
+    public static func stringDigest(forFileAtPath path: String) -> String {
+        return self.digest(forFileAtPath: path).compactMap { String(format: "%02hhx", $0) }.joined()
+    }
+    
+    public static func dataDigest(forFileAtPath path: String) -> Data {
+        return self.digest(forFileAtPath: path).withUnsafeBytes {
+            return Data(Array($0))
+        }
+    }
 }
 
-//func temporarySignature(for transactionData: Data,
-//                        durationInSeconds: TimeInterval = 10) throws -> P256.Signing.ECDSASignature {
-//    if !SecureEnclave.isAvailable {
-//        // Handle devices without secure enclave
-//        let privateKey = P256.Signing.PrivateKey()
-//        try SHKeychain.storeKey(privateKey, label: keyTag)
-//    }
-//    else {
-//        // Request for biometric authentication
-//        let accessControl = SecAccessControlCreateWithFlags(nil,
-//                                                            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-//                                                            [.privateKeyUsage, .userPresence],
-//                                                            nil)!
-//        // Keep user authenticated for 30s
-//        let authContext = LAContext()
-//        authContext.touchIDAuthenticationAllowableReuseDuration = durationInSeconds
-//        authContext.localizedReason = "Authorizing <operation>"
-//        let privateKey = try SecureEnclave.P256.Signing.PrivateKey(accessControl: accessControl,
-//                                                                   authenticationContext: authContext)
-//        try SHKeychain.storeKey(privateKey, account: keyTag)
-//
-//        let publicKey = privateKey.publicKey.compactRepresentation!
-//        let digest512 = SHA512.hash(data: transactionData)
-//        return try! privateKey.signature(for: Data(digest512))
-//
-//    }
-//
-//    let publicKey = privateKey.publicKey.compactRepresentation!
-//
-//    let signature = try privateKey.signature(for: transactionData)
-//    return signature
-//}
-//
-//func validateSignature(for data: Data, signature: P256.Signing.ECDSASignature) -> Bool {
-//    let publicKey = try! Curve25519.Signing.PublicKey(
-//      rawRepresentation: albusSigningPublicKeyData)
-//    if publicKey.isValidSignature(signatureForData, for: data) {
-//      print("Dumbledore sent this data.")
-//    }
-//    if publicKey.isValidSignature(signatureForDigest,
-//      for: Data(digest512)) {
-//      print("Data received == data sent.")
-//    }
-//}
+public struct SHSignature {
+    let account: String
+    
+    init(account: String) {
+        self.account = account
+    }
+    
+    func temporarySignature(for transactionData: Data,
+                            description: String,
+                            durationInSeconds: TimeInterval? = nil) throws -> P256.Signing.ECDSASignature {
+        if !SecureEnclave.isAvailable {
+            // Handle devices without secure enclave
+            let privateKey = P256.Signing.PrivateKey()
+            try SHKeychain.storeKey(privateKey, label: self.account)
+            return try privateKey.signature(for: transactionData)
+        }
+        else {
+            // Request for biometric authentication
+            let accessControl = SecAccessControlCreateWithFlags(nil,
+                                                                kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+                                                                [.privateKeyUsage, .userPresence],
+                                                                nil)!
+            // Keep user authenticated for durationInSeconds (if present)
+            var authContext: LAContext? = nil
+            if let durationInSeconds = durationInSeconds {
+                authContext = LAContext()
+                authContext!.touchIDAuthenticationAllowableReuseDuration = durationInSeconds
+                authContext!.localizedReason = description
+            }
+            
+            let privateKey = try SecureEnclave.P256.Signing.PrivateKey(accessControl: accessControl,
+                                                                       authenticationContext: authContext)
+            try SHKeychain.storeKey(privateKey, account: self.account)
+            let digest512 = SHA512.hash(data: transactionData)
+            return try! privateKey.signature(for: Data(digest512))
+        }
+    }
+
+    func validateSignature(for data: Data,
+                           digest: Data,
+                           signatureForData: P256.Signing.ECDSASignature,
+                           signatureForDigest: P256.Signing.ECDSASignature,
+                           receivedFrom user: SHUser) -> Bool {
+        guard user.signature.isValidSignature(signatureForData, for: data) else {
+            return false
+        }
+        print("the expected user sent this data.")
+        
+        guard user.signature.isValidSignature(signatureForDigest, for: digest) else {
+          return false
+        }
+        
+        print("data received == data sent.")
+        return true
+    }
+
+}
+

@@ -9,9 +9,6 @@ import Foundation
 import CryptoKit
 
 
-let keyTagPrefix = "com.gf.knowledgebase.keys."
-
-
 protocol SecKeyConvertible: CustomStringConvertible {
     /// Creates a key from an X9.63 representation.
     init<Bytes>(x963Representation: Bytes) throws where Bytes: ContiguousBytes
@@ -52,11 +49,11 @@ extension Curve25519.KeyAgreement.PrivateKey: GenericPasswordConvertible {}
 extension Curve25519.Signing.PrivateKey: GenericPasswordConvertible {}
 
 extension SymmetricKey: GenericPasswordConvertible {
-    init<D>(rawRepresentation data: D) throws where D: ContiguousBytes {
+    public init<D>(rawRepresentation data: D) throws where D: ContiguousBytes {
         self.init(data: data)
     }
     
-    var rawRepresentation: Data {
+    public var rawRepresentation: Data {
         // Contiguous bytes repackaged as a Data instance.
         return self.withUnsafeBytes { return Data(Array($0)) }
     }
