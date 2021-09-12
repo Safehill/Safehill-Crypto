@@ -1,7 +1,26 @@
 import Foundation
 import CryptoKit
 
-public struct SHUser {
+public protocol SHUser {
+    var publicKey: P256.KeyAgreement.PublicKey { get }
+    var signature: P256.Signing.PublicKey { get }
+}
+
+/// An entity known for its public key and signature
+public struct SHRemoteUser : SHUser {
+    public let publicKey: P256.KeyAgreement.PublicKey
+    public let signature: P256.Signing.PublicKey
+    
+    public init(publicKeyData: Data, publicSignatureData: Data) throws {
+        self.publicKey = try P256.KeyAgreement.PublicKey(rawRepresentation: publicKeyData)
+        self.signature = try P256.Signing.PublicKey(rawRepresentation: publicSignatureData)
+        
+    }
+}
+
+/// An entity whose private keys and signature are known.
+/// Usually represents a user on the local device, as the private portion of the keys are never shared
+public struct SHLocalUser : SHUser {
     fileprivate let privateSignature: P256.Signing.PrivateKey
     fileprivate let privateKey: P256.KeyAgreement.PrivateKey
     
@@ -23,8 +42,8 @@ public struct SHUser {
     
     /// Generates a new set of keys for encryption and signing
     public init() {
-        self.privateKey = SHUser.generateKey()
-        self.privateSignature = SHUser.generateSignature()
+        self.privateKey = SHLocalUser.generateKey()
+        self.privateSignature = SHLocalUser.generateSignature()
     }
     
     init(key: P256.KeyAgreement.PrivateKey, signature: P256.Signing.PrivateKey) {
@@ -61,7 +80,7 @@ public struct SHShareablePayload {
     public let signature: Data
     let recipient: SHUser?
     
-    init(ephemeralPublicKeyData: Data,
+    public init(ephemeralPublicKeyData: Data,
          cyphertext: Data,
          signature: Data,
          recipient: SHUser? = nil) {
@@ -90,9 +109,9 @@ public struct SHEncryptedData {
 }
 
 public struct SHContext {
-    let myUser: SHUser
+    let myUser: SHLocalUser
     
-    public init(user: SHUser) {
+    public init(user: SHLocalUser) {
         self.myUser = user
     }
     

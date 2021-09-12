@@ -11,7 +11,7 @@ import CryptoKit
 let protocolSalt = "TODO: Edit this. Should this be common across all clients?".data(using: .utf8)!
 
 
-struct SHCypher {
+public struct SHCypher {
     
     enum DecryptionError: Error {
         case authenticationError
@@ -58,7 +58,12 @@ struct SHCypher {
         let sealedBox = try AES.GCM.SealedBox(combined: data)
         return try AES.GCM.open(sealedBox, using: key)
     }
-
+    
+    public static func decrypt(data: Data, using keyData: Data) throws -> Data {
+        let sealedBox = try AES.GCM.SealedBox(combined: data)
+        let key = try SymmetricKey(rawRepresentation: data)
+        return try AES.GCM.open(sealedBox, using: key)
+    }
     
     static func decrypt(_ sealedMessage: SHShareablePayload,
                         using ourKeyEncryptionKey: P256.KeyAgreement.PrivateKey,
