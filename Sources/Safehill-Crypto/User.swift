@@ -1,10 +1,19 @@
+//
+//  User.swift
+//  
+//
+//  Created by Gennaro Frazzingaro on 9/22/21.
+//
+
 import Foundation
 import CryptoKit
+
 
 public protocol SHUser {
     var publicKey: P256.KeyAgreement.PublicKey { get }
     var signature: P256.Signing.PublicKey { get }
 }
+
 
 /// An entity known for its public key and signature
 public struct SHRemoteUser : SHUser {
@@ -17,6 +26,7 @@ public struct SHRemoteUser : SHUser {
         
     }
 }
+
 
 /// An entity whose private keys and signature are known.
 /// Usually represents a user on the local device, as the private portion of the keys are never shared
@@ -74,47 +84,17 @@ public struct SHLocalUser : SHUser {
     }
 }
 
-public struct SHShareablePayload {
-    public let ephemeralPublicKeyData: Data
-    public let cyphertext: Data
-    public let signature: Data
-    let recipient: SHUser?
-    
-    public init(ephemeralPublicKeyData: Data,
-         cyphertext: Data,
-         signature: Data,
-         recipient: SHUser? = nil) {
-        self.ephemeralPublicKeyData = ephemeralPublicKeyData
-        self.cyphertext = cyphertext
-        self.signature = signature
-        self.recipient = recipient
-    }
-}
 
-public struct SHEncryptedData {
-    /// privateSecret should never be shared
-    public let privateSecret: SymmetricKey
-    public let encryptedData: Data
-    
-    public init(privateSecret: SymmetricKey, data: Data) {
-        self.privateSecret = privateSecret
-        self.encryptedData = data
-    }
-    
-    public init(clearData: Data) throws {
-        let secret = SymmetricKey(size: .bits256)
-        self.init(privateSecret: secret,
-                  data: try SHCypher.encrypt(clearData, using: secret))
-    }
-}
-
-public struct SHContext {
+public struct SHUserContext {
     let myUser: SHLocalUser
     
     public init(user: SHLocalUser) {
         self.myUser = user
     }
-    
+}
+
+
+extension SHUserContext {
     public func shareable(data: Data, with user: SHUser) throws -> SHShareablePayload {
         let ephemeralKey = P256.KeyAgreement.PrivateKey()
         let encrypted = try SHCypher.encrypt(data,

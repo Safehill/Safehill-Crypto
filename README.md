@@ -1,6 +1,6 @@
-# Safehill
+# Safehill-Crypto
 
-A description of this package.
+A (soon-to-be-cross-platform) library to manage encryption and decryption of data.
 
 
 ## Sharing encrypted content

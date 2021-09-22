@@ -1,5 +1,5 @@
 import XCTest
-@testable import Safehill
+@testable import Safehill_Crypto
 import CryptoKit
 
 final class SafehillTests: XCTestCase {
@@ -47,10 +47,10 @@ final class SafehillTests: XCTestCase {
     }
 
     func testShareablePayloadAliceAndBob() throws {
-        let alice = SHUser()
-        let bob = SHUser()
-        let aliceContext = SHContext(user: alice)
-        let bobContext = SHContext(user: bob)
+        let alice = SHLocalUser()
+        let bob = SHLocalUser()
+        let aliceContext = SHUserContext(user: alice)
+        let bobContext = SHUserContext(user: bob)
         
         /** Alice uploads encrypted content for Bob (and only Bob) to decrypt*/
         let originalString = "This is a test"
@@ -70,8 +70,8 @@ final class SafehillTests: XCTestCase {
         XCTAssertEqual(originalString, decryptedString)
         
         /** Ensure another user in possession of Alice's signature and public key can NOT decrypt that content */
-        let hacker = SHUser()
-        let hackerContext = SHContext(user: hacker)
+        let hacker = SHLocalUser()
+        let hackerContext = SHUserContext(user: hacker)
         
         do {
             let _ = try hackerContext.decrypt(encryptedData.encryptedData,
@@ -94,14 +94,14 @@ final class SafehillTests: XCTestCase {
     }
     
     func testShareablePayloadAliceToSelf() throws {
-        let alice = SHUser()
+        let alice = SHLocalUser()
         
         let originalString = "This is a test"
         let stringAsData = originalString.data(using: .utf8)!
         let encryptedData = try SHEncryptedData(clearData: stringAsData)
         // upload encrypted data
         
-        let aliceContext = SHContext(user: alice)
+        let aliceContext = SHUserContext(user: alice)
         let encryptedSecret = try aliceContext.shareable(data: encryptedData.privateSecret.rawRepresentation, with: alice)
         // upload encrypted secret
         
@@ -115,10 +115,10 @@ final class SafehillTests: XCTestCase {
     }
     
     func _testKeychain() throws {
-        let alice = SHUser()
+        let alice = SHLocalUser()
         try alice.saveToKeychain(withLabel: "alice")
         
-        let alice2 = try SHUser(usingKeychainEntryWithLabel: "alice")
+        let alice2 = try SHLocalUser(usingKeychainEntryWithLabel: "alice")
         
         XCTAssertTrue(alice.publicKey.compactRepresentation == alice2.publicKey.compactRepresentation)
         XCTAssertTrue(alice.signature.compactRepresentation == alice2.signature.compactRepresentation)
