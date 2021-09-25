@@ -13,12 +13,12 @@ public struct SHShareablePayload {
     public let ephemeralPublicKeyData: Data
     public let cyphertext: Data
     public let signature: Data
-    let recipient: SHUser?
+    let recipient: SHCryptoUser?
     
     public init(ephemeralPublicKeyData: Data,
          cyphertext: Data,
          signature: Data,
-         recipient: SHUser? = nil) {
+         recipient: SHCryptoUser? = nil) {
         self.ephemeralPublicKeyData = ephemeralPublicKeyData
         self.cyphertext = cyphertext
         self.signature = signature

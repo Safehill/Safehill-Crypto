@@ -89,7 +89,7 @@ public struct SHSignature {
                            digest: Data,
                            signatureForData: P256.Signing.ECDSASignature,
                            signatureForDigest: P256.Signing.ECDSASignature,
-                           receivedFrom user: SHUser) -> Bool {
+                           receivedFrom user: SHRemoteCryptoUser) -> Bool {
         guard user.signature.isValidSignature(signatureForData, for: data) else {
             return false
         }

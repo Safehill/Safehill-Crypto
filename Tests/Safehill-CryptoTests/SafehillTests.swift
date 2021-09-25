@@ -47,8 +47,8 @@ final class SafehillTests: XCTestCase {
     }
 
     func testShareablePayloadAliceAndBob() throws {
-        let alice = SHLocalUser()
-        let bob = SHLocalUser()
+        let alice = SHLocalCryptoUser()
+        let bob = SHLocalCryptoUser()
         let aliceContext = SHUserContext(user: alice)
         let bobContext = SHUserContext(user: bob)
         
@@ -70,7 +70,7 @@ final class SafehillTests: XCTestCase {
         XCTAssertEqual(originalString, decryptedString)
         
         /** Ensure another user in possession of Alice's signature and public key can NOT decrypt that content */
-        let hacker = SHLocalUser()
+        let hacker = SHLocalCryptoUser()
         let hackerContext = SHUserContext(user: hacker)
         
         do {
@@ -94,7 +94,7 @@ final class SafehillTests: XCTestCase {
     }
     
     func testShareablePayloadAliceToSelf() throws {
-        let alice = SHLocalUser()
+        let alice = SHLocalCryptoUser()
         
         let originalString = "This is a test"
         let stringAsData = originalString.data(using: .utf8)!
@@ -115,10 +115,10 @@ final class SafehillTests: XCTestCase {
     }
     
     func _testKeychain() throws {
-        let alice = SHLocalUser()
+        let alice = SHLocalCryptoUser()
         try alice.saveToKeychain(withLabel: "alice")
         
-        let alice2 = try SHLocalUser(usingKeychainEntryWithLabel: "alice")
+        let alice2 = try SHLocalCryptoUser(usingKeychainEntryWithLabel: "alice")
         
         XCTAssertTrue(alice.publicKey.compactRepresentation == alice2.publicKey.compactRepresentation)
         XCTAssertTrue(alice.signature.compactRepresentation == alice2.signature.compactRepresentation)
