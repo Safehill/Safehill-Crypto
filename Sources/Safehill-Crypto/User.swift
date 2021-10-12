@@ -101,6 +101,11 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser {
         try SHKeychain.storeKey(privateKey, label: label + ".key")
         try SHKeychain.storeKey(privateSignature, label: label + ".signature")
     }
+    
+    public func updateKeysInKeychain(withLabel label: String) throws {
+        try SHKeychain.updateKey(privateKey, label: label + ".key")
+        try SHKeychain.updateKey(privateSignature, label: label + ".signature")
+    }
 }
 
 
