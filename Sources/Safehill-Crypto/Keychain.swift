@@ -72,7 +72,7 @@ extension SecureEnclave.P256.Signing.PrivateKey: GenericPasswordConvertible {
 }
 
 
-struct SHKeychain {
+public struct SHKeychain {
     
     public enum Error: CustomNSError, LocalizedError {
         case generic(String)
@@ -161,6 +161,33 @@ struct SHKeychain {
             return try T(rawRepresentation: data)  // Convert back to a key.
         case errSecItemNotFound: return nil
         case let status: throw SHKeychain.Error.unexpectedStatus(status)
+        }
+    }
+    
+    static func updateKey<T: SecKeyConvertible>(_ key: T, label: String) throws {
+        // Describe the key.
+        let attributes = [kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
+                          kSecAttrKeyClass: kSecAttrKeyClassPrivate] as [String: Any]
+
+        // Get a SecKey representation.
+        guard let secKey = SecKeyCreateWithData(key.x963Representation as CFData,
+                                                attributes as CFDictionary,
+                                                nil)
+            else {
+                throw SHKeychain.Error.generic("Unable to create SecKey representation.")
+        }
+        
+        // Describe the add operation.
+        let query = [kSecClass: kSecClassKey,
+                     kSecAttrApplicationLabel: label,
+                     kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+                     kSecUseDataProtectionKeychain: true,
+                     kSecValueRef: secKey] as [String: Any]
+
+        // Add the key to the keychain.
+        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        guard status == errSecSuccess else {
+            throw SHKeychain.Error.unexpectedStatus(status)
         }
     }
 }
