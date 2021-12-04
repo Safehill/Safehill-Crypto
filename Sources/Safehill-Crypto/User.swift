@@ -97,7 +97,7 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser {
         self.init(key: pk, signature: sig)
     }
     
-    public func saveToKeychain(withLabel label: String) throws {
+    public func saveKeysToKeychain(withLabel label: String) throws {
         try SHKeychain.storeKey(privateKey, label: label + ".key")
         try SHKeychain.storeKey(privateSignature, label: label + ".signature")
     }
