@@ -93,13 +93,13 @@ public struct SHSignature {
         guard user.signature.isValidSignature(signatureForData, for: data) else {
             return false
         }
-        print("the expected user sent this data.")
+        log.info("the expected user sent this data.")
         
         guard user.signature.isValidSignature(signatureForDigest, for: digest) else {
           return false
         }
         
-        print("data received == data sent.")
+        log.info("data received == data sent.")
         return true
     }
 

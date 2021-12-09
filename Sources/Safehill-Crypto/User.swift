@@ -7,6 +7,9 @@
 
 import Foundation
 import CryptoKit
+import os
+
+internal let log = Logger(subsystem: "com.gf.safehill.crypto", category: "SafehillCrypto")
 
 
 protocol _SHCryptoUser {
@@ -42,6 +45,10 @@ public struct SHRemoteCryptoUser : _SHCryptoUser, SHCryptoUser {
 /// An entity whose private keys and signature are known.
 /// Usually represents a user on the local device, as the private portion of the keys are never shared
 public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser {
+    
+    public var identifier: String {
+        SHHash.stringDigest(for: publicSignatureData)
+    }
     
     fileprivate let privateSignature: P256.Signing.PrivateKey
     fileprivate let privateKey: P256.KeyAgreement.PrivateKey
@@ -86,13 +93,22 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser {
         
         guard let pk = privateKey, let sig = privateSignature  else {
             if privateKey == nil {
+                log.error("Couldn't find private key in keychain \(label)")
                 throw SHKeychain.Error.generic("No entry in keychain for \(label).key")
             } else if privateSignature == nil {
+                log.error("Couldn't find private signature in keychain \(label)")
                 throw SHKeychain.Error.generic("No entry in keychain for \(label).signature")
             } else {
+                log.error("Couldn't find private key and private signature in keychain \(label)")
                 throw SHKeychain.Error.generic("No entry in keychain with label \(label)(.key|.signature)")
             }
         }
+        
+#if DEBUG
+        let publicSignatureData = sig.publicKey.rawRepresentation
+        let identifier = SHHash.stringDigest(for: publicSignatureData)
+        log.info("Found keys in keychain \(label). Derived user identifier is \(identifier))")
+#endif
         
         self.init(key: pk, signature: sig)
     }
@@ -100,11 +116,25 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser {
     public func saveKeysToKeychain(withLabel label: String) throws {
         try SHKeychain.storeKey(privateKey, label: label + ".key")
         try SHKeychain.storeKey(privateSignature, label: label + ".signature")
+#if DEBUG
+        let publicSignatureData = privateSignature.publicKey.rawRepresentation
+        var identifier = SHHash.stringDigest(for: publicSignatureData)
+        log.info("Saving keys in keychain \(label). Derived user identifier is \(identifier))")
+        let retirevedPrivateSignature = try SHKeychain.retrieveKey(label: label + ".signature") as P256.Signing.PrivateKey?
+        identifier = SHHash.stringDigest(for: retirevedPrivateSignature!.publicKey.rawRepresentation)
+        log.info("Derived user identifier for current item in keychain \(label) is \(identifier))")
+#endif
     }
     
-    public func updateKeysInKeychain(withLabel label: String) throws {
-        try SHKeychain.updateKey(privateKey, label: label + ".key")
-        try SHKeychain.updateKey(privateSignature, label: label + ".signature")
+    public func deleteKeysInKeychain(withLabel label: String) throws {
+        try SHKeychain.removeKey(withLabel: label + ".key")
+        try SHKeychain.removeKey(withLabel: label + ".signature")
+#if DEBUG
+        log.info("Successfully deleted key in keychain \(label)")
+        if (try? SHKeychain.retrieveKey(label: label + ".signature") as P256.Signing.PrivateKey?) != nil {
+            fatalError("Key is still in the keychain")
+        }
+#endif
     }
 }
 

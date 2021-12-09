@@ -76,6 +76,7 @@ public struct SHKeychain {
     
     public enum Error: CustomNSError, LocalizedError {
         case generic(String)
+        case notFound
         case unexpectedStatus(OSStatus)
     }
     
@@ -164,11 +165,37 @@ public struct SHKeychain {
         }
     }
     
+    static func removeKey(withLabel label: String) throws {
+        // Describe the remove operation.
+        let query = [kSecClass: kSecClassKey,
+                     kSecAttrApplicationLabel: label] as [String: Any]
+        
+        let status = SecItemDelete(query as CFDictionary)
+        guard status != errSecItemNotFound else { throw SHKeychain.Error.notFound }
+        guard status == errSecSuccess else {
+            throw SHKeychain.Error.unexpectedStatus(status)
+        }
+    }
+    
+    static func removePassword(forAccount account: String) throws {
+        // Describe the remove operation.
+        let query = [kSecClass: kSecClassGenericPassword,
+                     kSecAttrAccount: account]  as [String: Any]
+        
+        let status = SecItemDelete(query as CFDictionary)
+        guard status != errSecItemNotFound else { throw SHKeychain.Error.notFound }
+        guard status == errSecSuccess else {
+            throw SHKeychain.Error.unexpectedStatus(status)
+        }
+    }
+    
+    /* TODO: The following methods don't seem to work
+     
     static func updateKey<T: SecKeyConvertible>(_ key: T, label: String) throws {
         // Describe the key.
         let attributes = [kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
                           kSecAttrKeyClass: kSecAttrKeyClassPrivate] as [String: Any]
-
+        
         // Get a SecKey representation.
         guard let secKey = SecKeyCreateWithData(key.x963Representation as CFData,
                                                 attributes as CFDictionary,
@@ -177,17 +204,39 @@ public struct SHKeychain {
                 throw SHKeychain.Error.generic("Unable to create SecKey representation.")
         }
         
-        // Describe the add operation.
+        // Describe the keys to update
+        let attributesToUpdate = [kSecValueRef: secKey] as [String: Any]
+        
+        // Describe the update operation.
         let query = [kSecClass: kSecClassKey,
-                     kSecAttrApplicationLabel: label,
-                     kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
-                     kSecUseDataProtectionKeychain: true,
-                     kSecValueRef: secKey] as [String: Any]
+                     kSecAttrApplicationLabel: label] as [String: Any]
 
-        // Add the key to the keychain.
-        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        // Update the key to the keychain.
+        let status = SecItemUpdate(query as CFDictionary, attributesToUpdate as CFDictionary)
+        guard status != errSecItemNotFound else { throw SHKeychain.Error.notFound }
         guard status == errSecSuccess else {
             throw SHKeychain.Error.unexpectedStatus(status)
         }
     }
+    
+    static func updateKey<T: GenericPasswordConvertible>(_ key: T, account: String) throws {
+        // Treat the key data as a generic password.
+        let query = [kSecClass: kSecClassGenericPassword,
+                     kSecAttrAccount: account] as [String: Any]
+        
+        // Describe the keys to update
+        let attributesToUpdate = [
+            kSecValueData: key.rawRepresentation
+        ] as [String: AnyObject]
+        
+        // Update the key data.
+        let status = SecItemUpdate(query as CFDictionary, attributesToUpdate as CFDictionary)
+        guard status != errSecItemNotFound else { throw SHKeychain.Error.notFound }
+        guard status == errSecSuccess else {
+            throw SHKeychain.Error.unexpectedStatus(status)
+        }
+    }
+     
+    */
+    
 }
