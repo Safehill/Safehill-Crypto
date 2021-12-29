@@ -44,7 +44,12 @@ public struct SHRemoteCryptoUser : _SHCryptoUser, SHCryptoUser {
 
 /// An entity whose private keys and signature are known.
 /// Usually represents a user on the local device, as the private portion of the keys are never shared
-public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser {
+public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
+    
+    enum CodingKeys: String, CodingKey {
+        case privateKeyData
+        case privateSignatureData
+    }
     
     public var identifier: String {
         SHHash.stringDigest(for: publicSignatureData)
@@ -80,6 +85,21 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser {
     public init() {
         self.privateKey = SHLocalCryptoUser.generateKey()
         self.privateSignature = SHLocalCryptoUser.generateSignature()
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let privateKeyData = try container.decode(Data.self, forKey: .privateKeyData)
+        let privateSignatureData = try container.decode(Data.self, forKey: .privateSignatureData)
+        
+        privateKey = try P256.KeyAgreement.PrivateKey(rawRepresentation: privateKeyData)
+        privateSignature = try P256.Signing.PrivateKey(rawRepresentation: privateSignatureData)
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(privateKey.rawRepresentation, forKey: .privateKeyData)
+        try container.encode(privateSignature.rawRepresentation, forKey: .privateSignatureData)
     }
     
     init(key: P256.KeyAgreement.PrivateKey, signature: P256.Signing.PrivateKey) {
