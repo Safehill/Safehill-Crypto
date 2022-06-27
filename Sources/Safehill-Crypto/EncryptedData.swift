@@ -13,15 +13,14 @@ public struct SHEncryptedData {
     public let privateSecret: SymmetricKey
     public let encryptedData: Data
     
-    public init(privateSecret: SymmetricKey, data: Data) {
+    public init(privateSecret: SymmetricKey, clearData: Data) throws {
         self.privateSecret = privateSecret
-        self.encryptedData = data
+        self.encryptedData = try SHCypher.encrypt(clearData, using: privateSecret)
     }
     
     public init(clearData: Data) throws {
         let secret = SymmetricKey(size: .bits256)
-        self.init(privateSecret: secret,
-                  data: try SHCypher.encrypt(clearData, using: secret))
+        try self.init(privateSecret: secret, clearData: clearData)
     }
 }
 

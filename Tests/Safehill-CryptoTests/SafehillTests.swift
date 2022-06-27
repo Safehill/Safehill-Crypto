@@ -84,9 +84,11 @@ final class SafehillTests: XCTestCase {
         
         /** Ensure that if Alice's private key is compromised, the message for Bob still can't get decrypted (because Bob's private key is still safe) */
         do {
-            let _ = try aliceContext.decrypt(encryptedData.encryptedData,
-                                                       usingEncryptedSecret: encryptedSecret,
-                                                       receivedFrom: alice)
+            let _ = try aliceContext.decrypt(
+                encryptedData.encryptedData,
+                usingEncryptedSecret: encryptedSecret,
+                receivedFrom: alice
+            )
             XCTFail()
         } catch SHCypher.DecryptionError.authenticationError {
             print("Authentication failed for alice")
@@ -106,9 +108,11 @@ final class SafehillTests: XCTestCase {
         // upload encrypted secret
         
         /** Once Bob gets encryptedData, encryptedSecret  */
-        let decryptedData = try aliceContext.decrypt(encryptedData.encryptedData,
-                                                   usingEncryptedSecret: encryptedSecret,
-                                                   receivedFrom: alice)
+        let decryptedData = try aliceContext.decrypt(
+            encryptedData.encryptedData,
+            usingEncryptedSecret: encryptedSecret,
+            receivedFrom: alice
+        )
         let decryptedString = String(data: decryptedData, encoding: .utf8)
         
         XCTAssertEqual(originalString, decryptedString)
@@ -116,7 +120,7 @@ final class SafehillTests: XCTestCase {
     
     func _testKeychain() throws {
         let alice = SHLocalCryptoUser()
-        try alice.saveToKeychain(withLabel: "alice")
+        try alice.saveKeysToKeychain(withLabel: "alice")
         
         let alice2 = try SHLocalCryptoUser(usingKeychainEntryWithLabel: "alice")
         

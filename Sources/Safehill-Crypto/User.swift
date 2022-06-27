@@ -46,6 +46,11 @@ public struct SHRemoteCryptoUser : _SHCryptoUser, SHCryptoUser {
 /// Usually represents a user on the local device, as the private portion of the keys are never shared
 public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
     
+    enum InitializationError: Error {
+        case invalidKey(Any)
+        case invalidSignature(Any)
+    }
+    
     enum CodingKeys: String, CodingKey {
         case privateKeyData
         case privateSignatureData
@@ -66,6 +71,9 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         self.privateSignature.publicKey
     }
     
+    public var privateKeyData: Data {
+        self.privateKey.rawRepresentation
+    }
     public var publicKeyData: Data {
         self.privateKey.publicKey.rawRepresentation
     }
@@ -89,8 +97,16 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let privateKeyData = try container.decode(Data.self, forKey: .privateKeyData)
-        let privateSignatureData = try container.decode(Data.self, forKey: .privateSignatureData)
+        
+        let privateKeyDataBase64 = try container.decode(String.self, forKey: .privateKeyData)
+        let privateSignatureDataBase64 = try container.decode(String.self, forKey: .privateSignatureData)
+        
+        guard let privateKeyData = Data(base64Encoded: privateKeyDataBase64) else {
+            throw SHLocalCryptoUser.InitializationError.invalidKey(privateKeyDataBase64)
+        }
+        guard let privateSignatureData = Data(base64Encoded: privateSignatureDataBase64) else {
+            throw SHLocalCryptoUser.InitializationError.invalidSignature(privateKeyDataBase64)
+        }
         
         privateKey = try P256.KeyAgreement.PrivateKey(rawRepresentation: privateKeyData)
         privateSignature = try P256.Signing.PrivateKey(rawRepresentation: privateSignatureData)
@@ -98,8 +114,8 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
     
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(privateKey.rawRepresentation, forKey: .privateKeyData)
-        try container.encode(privateSignature.rawRepresentation, forKey: .privateSignatureData)
+        try container.encode(privateKey.rawRepresentation.base64EncodedString(), forKey: .privateKeyData)
+        try container.encode(privateSignature.rawRepresentation.base64EncodedString(), forKey: .privateSignatureData)
     }
     
     init(key: P256.KeyAgreement.PrivateKey, signature: P256.Signing.PrivateKey) {
@@ -170,6 +186,7 @@ public struct SHUserContext {
 
 extension SHUserContext {
     public func shareable(data: Data, with user: SHCryptoUser) throws -> SHShareablePayload {
+        log.info("encrypting data for user with public key \(user.publicKeyData.base64EncodedString()) public signature \(user.publicSignatureData.base64EncodedString())")
         let ephemeralKey = P256.KeyAgreement.PrivateKey()
         let userPublicKey = try P256.KeyAgreement.PublicKey(rawRepresentation: user.publicKeyData)
         let encrypted = try SHCypher.encrypt(data,
@@ -185,6 +202,7 @@ extension SHUserContext {
     public func decrypt(_ data: Data,
                         usingEncryptedSecret encryptedSecret: SHShareablePayload,
                         receivedFrom sender: SHCryptoUser) throws -> Data {
+        log.info("decrypting data received from sender with public key \(sender.publicKeyData.base64EncodedString()) public signature \(sender.publicSignatureData.base64EncodedString())")
         let senderPublicSignature = try P256.Signing.PublicKey(rawRepresentation: sender.publicSignatureData)
         let secretData = try SHCypher.decrypt(encryptedSecret,
                                               using: myUser.privateKey,
