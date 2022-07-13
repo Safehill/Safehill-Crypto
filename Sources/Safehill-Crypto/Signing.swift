@@ -48,19 +48,21 @@ public struct SHHash {
 }
 
 public struct SHSignature {
-    let account: String
+    let account: String?
     
-    init(account: String) {
+    public init(saveToKeychainAccount account: String? = nil) {
         self.account = account
     }
     
-    func temporarySignature(for transactionData: Data,
-                            description: String,
-                            durationInSeconds: TimeInterval? = nil) throws -> P256.Signing.ECDSASignature {
+    public func temporarySignature(for transactionData: Data,
+                                   description: String,
+                                   durationInSeconds: TimeInterval? = nil) throws -> P256.Signing.ECDSASignature {
         if !SecureEnclave.isAvailable {
             // Handle devices without secure enclave
             let privateKey = P256.Signing.PrivateKey()
-            try SHKeychain.storeKey(privateKey, label: self.account)
+            if let account = account {
+                try SHKeychain.storeKey(privateKey, label: account)
+            }
             return try privateKey.signature(for: transactionData)
         }
         else {
@@ -79,17 +81,19 @@ public struct SHSignature {
             
             let privateKey = try SecureEnclave.P256.Signing.PrivateKey(accessControl: accessControl,
                                                                        authenticationContext: authContext)
-            try SHKeychain.storeKey(privateKey, account: self.account)
+            if let account = account {
+                try SHKeychain.storeKey(privateKey, account: account)
+            }
             let digest512 = SHA512.hash(data: transactionData)
             return try! privateKey.signature(for: Data(digest512))
         }
     }
 
-    func validateSignature(for data: Data,
-                           digest: Data,
-                           signatureForData: P256.Signing.ECDSASignature,
-                           signatureForDigest: P256.Signing.ECDSASignature,
-                           receivedFrom user: SHRemoteCryptoUser) -> Bool {
+    public static func validateSignature(for data: Data,
+                                         digest: Data,
+                                         signatureForData: P256.Signing.ECDSASignature,
+                                         signatureForDigest: P256.Signing.ECDSASignature,
+                                         receivedFrom user: SHRemoteCryptoUser) -> Bool {
         guard user.signature.isValidSignature(signatureForData, for: data) else {
             return false
         }

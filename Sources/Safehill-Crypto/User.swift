@@ -39,6 +39,10 @@ public struct SHRemoteCryptoUser : _SHCryptoUser, SHCryptoUser {
         self.publicKeyData = publicKeyData
         self.publicSignatureData = publicSignatureData
     }
+    
+    public func isValidSignature(_ signature: P256.Signing.ECDSASignature, for data: Data) -> Bool {
+        return self.signature.isValidSignature(signature, for: data)
+    }
 }
 
 
@@ -118,7 +122,7 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         try container.encode(privateSignature.rawRepresentation.base64EncodedString(), forKey: .privateSignatureData)
     }
     
-    init(key: P256.KeyAgreement.PrivateKey, signature: P256.Signing.PrivateKey) {
+    public init(key: P256.KeyAgreement.PrivateKey, signature: P256.Signing.PrivateKey) {
         self.privateKey = key
         self.privateSignature = signature
     }
@@ -171,6 +175,10 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
             fatalError("Key is still in the keychain")
         }
 #endif
+    }
+    
+    public func signature(for data: Data) throws -> P256.Signing.ECDSASignature {
+        return try self.privateSignature.signature(for: data)
     }
 }
 

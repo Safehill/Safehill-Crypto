@@ -18,7 +18,7 @@ let protocolSalt = Data(bytes: iv, count: iv.count)
 
 public struct SHCypher {
     
-    enum DecryptionError: Error {
+    public enum DecryptionError: Error {
         case authenticationError
     }
     
