@@ -128,4 +128,15 @@ final class SafehillTests: XCTestCase {
         XCTAssertTrue(alice.signature.compactRepresentation == alice2.signature.compactRepresentation)
     }
     
+    func testSigning() throws {
+        let user = SHLocalCryptoUser()
+        let data = "test data".data(using: .utf8)!
+        let signatureForData = try user.signature(for: data)
+        let digest512 = Data(SHA512.hash(data: data))
+        let signatureForDigest = try user.signature(for: digest512)
+        
+        let publicSignature = try P256.Signing.PublicKey(rawRepresentation: user.publicSignatureData)
+        XCTAssert(publicSignature.isValidSignature(signatureForData, for: data))
+        XCTAssert(publicSignature.isValidSignature(signatureForDigest, for: digest512))
+    }
 }
