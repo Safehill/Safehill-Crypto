@@ -6,8 +6,11 @@
 //
 
 import Foundation
+#if os(Linux)
+@_exported import Crypto
+#else
 import CryptoKit
-
+#endif
 
 protocol SecKeyConvertible: CustomStringConvertible {
     /// Creates a key from an X9.63 representation.
@@ -59,6 +62,7 @@ extension SymmetricKey: GenericPasswordConvertible {
     }
 }
 
+#if !os(Linux)
 extension SecureEnclave.P256.Signing.PrivateKey: GenericPasswordConvertible {
     init<D>(rawRepresentation data: D) throws where D: ContiguousBytes {
         // Contiguous bytes repackaged as a Data instance.
@@ -70,7 +74,6 @@ extension SecureEnclave.P256.Signing.PrivateKey: GenericPasswordConvertible {
         return self.dataRepresentation  // Contiguous bytes repackaged as a Data instance.
     }
 }
-
 
 public struct SHKeychain {
     
@@ -240,3 +243,5 @@ public struct SHKeychain {
     */
     
 }
+
+#endif

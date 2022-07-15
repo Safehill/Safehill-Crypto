@@ -6,10 +6,16 @@
 //
 
 import Foundation
+
+#if os(Linux)
+@_exported import Crypto
+import Logging
+let log = Logger(label: "SafehillCrypto")
+#else
 import CryptoKit
 import os
-
 internal let log = Logger(subsystem: "com.gf.safehill.crypto", category: "SafehillCrypto")
+#endif
 
 
 protocol _SHCryptoUser {
@@ -127,6 +133,7 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         self.privateSignature = signature
     }
     
+#if !os(Linux)
     public init(usingKeychainEntryWithLabel label: String) throws {
         let privateKey = try SHKeychain.retrieveKey(label: label + ".key") as P256.KeyAgreement.PrivateKey?
         let privateSignature = try SHKeychain.retrieveKey(label: label + ".signature") as P256.Signing.PrivateKey?
@@ -176,6 +183,7 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         }
 #endif
     }
+#endif
     
     public func signature(for data: Data) throws -> P256.Signing.ECDSASignature {
         return try self.privateSignature.signature(for: data)

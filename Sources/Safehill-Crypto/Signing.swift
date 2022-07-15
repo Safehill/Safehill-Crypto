@@ -6,8 +6,12 @@
 //
 
 import Foundation
+#if os(Linux)
+@_exported import Crypto
+#else
 import CryptoKit
 import LocalAuthentication
+#endif
 
 public struct SHHash {
     
@@ -54,18 +58,26 @@ public struct SHSignature {
         self.account = account
     }
     
+    private func temporarySignature(for transactionData: Data) throws -> P256.Signing.ECDSASignature {
+        let privateKey = P256.Signing.PrivateKey()
+#if !os(Linux)
+        if let account = account {
+            try SHKeychain.storeKey(privateKey, label: account)
+        }
+#endif
+        return try privateKey.signature(for: transactionData)
+    }
+    
     public func temporarySignature(for transactionData: Data,
                                    description: String,
                                    durationInSeconds: TimeInterval? = nil) throws -> P256.Signing.ECDSASignature {
+#if os(Linux)
+        return try self.temporarySignature(for: transactionData)
+#else
+        
         if !SecureEnclave.isAvailable {
-            // Handle devices without secure enclave
-            let privateKey = P256.Signing.PrivateKey()
-            if let account = account {
-                try SHKeychain.storeKey(privateKey, label: account)
-            }
-            return try privateKey.signature(for: transactionData)
-        }
-        else {
+            return try self.temporarySignature(for: transactionData)
+        } else {
             // Request for biometric authentication
             let accessControl = SecAccessControlCreateWithFlags(nil,
                                                                 kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
@@ -87,6 +99,7 @@ public struct SHSignature {
             let digest512 = SHA512.hash(data: transactionData)
             return try! privateKey.signature(for: Data(digest512))
         }
+#endif
     }
 
     public static func validateSignature(for data: Data,
