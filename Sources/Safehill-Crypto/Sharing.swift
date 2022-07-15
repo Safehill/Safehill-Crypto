@@ -6,8 +6,11 @@
 //
 
 import Foundation
+#if os(Linux)
+@_exported import Crypto
+#else
 import CryptoKit
-
+#endif
 
 public struct SHShareablePayload {
     public let ephemeralPublicKeyData: Data

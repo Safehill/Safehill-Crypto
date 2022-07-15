@@ -6,7 +6,11 @@
 //
 
 import Foundation
+#if os(Linux)
+@_exported import Crypto
+#else
 import CryptoKit
+#endif
 
 public struct SHEncryptedData {
     /// privateSecret should never be shared

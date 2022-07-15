@@ -6,7 +6,11 @@
 //
 
 import Foundation
+#if os(Linux)
+@_exported import Crypto
+#else
 import CryptoKit
+#endif
 
 // TODO: Edit this. Should this be common across all clients, or unique per user?
 let iv: [UInt8] = [0x00, 0x01, 0x02, 0x03,
