@@ -160,15 +160,26 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         self.init(key: pk, signature: sig)
     }
     
-    public func saveKeysToKeychain(withLabel label: String) throws {
-        try SHKeychain.storeKey(privateKey, label: label + ".key")
-        try SHKeychain.storeKey(privateSignature, label: label + ".signature")
+    public func saveKeysToKeychain(withLabel label: String, force: Bool = false) throws {
+        do {
+            try SHKeychain.storeKey(privateKey, label: label + ".key")
+            try SHKeychain.storeKey(privateSignature, label: label + ".signature")
+        } catch SHKeychain.Error.unexpectedStatus(let status) {
+            if status == -25299 && force == true {
+                try? self.deleteKeysInKeychain(withLabel: label)
+                
+                try SHKeychain.storeKey(privateKey, label: label + ".key")
+                try SHKeychain.storeKey(privateSignature, label: label + ".signature")
+            } else {
+                throw SHKeychain.Error.unexpectedStatus(status)
+            }
+        }
 #if DEBUG
         let publicSignatureData = privateSignature.publicKey.rawRepresentation
         var identifier = SHHash.stringDigest(for: publicSignatureData)
         log.info("Saving keys in keychain \(label). Derived user identifier is \(identifier))")
-        let retirevedPrivateSignature = try SHKeychain.retrieveKey(label: label + ".signature") as P256.Signing.PrivateKey?
-        identifier = SHHash.stringDigest(for: retirevedPrivateSignature!.publicKey.rawRepresentation)
+        let retrievedPrivateSignature = try SHKeychain.retrieveKey(label: label + ".signature") as P256.Signing.PrivateKey?
+        identifier = SHHash.stringDigest(for: retrievedPrivateSignature!.publicKey.rawRepresentation)
         log.info("Derived user identifier for current item in keychain \(label) is \(identifier))")
 #endif
     }
