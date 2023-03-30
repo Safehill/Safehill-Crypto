@@ -26,29 +26,29 @@ public struct SHCypher {
         case authenticationError
     }
     
-    static func encrypt(_ data: Data, using key: SymmetricKey) throws -> Data {
-        return try AES.GCM.seal(data, using: key).combined!
+    static func encrypt(_ data: Data, using key: SymmetricKey, nonce: AES.GCM.Nonce? = nil) throws -> Data {
+        return try AES.GCM.seal(data, using: key, nonce: nonce).combined!
     }
 
     static func encrypt(
         _ messageToSeal: Data,
-        to theirEncryptionKey: P256.KeyAgreement.PublicKey,
+        to receiverPublicKey: P256.KeyAgreement.PublicKey,
         using ephemeralKey: P256.KeyAgreement.PrivateKey,
-        signedBy ourSigningKey: P256.Signing.PrivateKey) throws -> SHShareablePayload
+        signedBy senderSignatureKey: P256.Signing.PrivateKey) throws -> SHShareablePayload
     {
-        let sharedSecret = try ephemeralKey.sharedSecretFromKeyAgreement(with: theirEncryptionKey)
+        let sharedSecretFromKeyAgreement = try ephemeralKey.sharedSecretFromKeyAgreement(with: receiverPublicKey)
         
-        let symmetricKey = sharedSecret.hkdfDerivedSymmetricKey(
+        let sharedInfo = ephemeralKey.publicKey.rawRepresentation + receiverPublicKey.rawRepresentation + senderSignatureKey.publicKey.rawRepresentation
+        let symmetricKey = sharedSecretFromKeyAgreement.hkdfDerivedSymmetricKey(
             using: SHA256.self,
             salt: protocolSalt,
-            sharedInfo: ephemeralKey.publicKey.rawRepresentation + theirEncryptionKey.rawRepresentation + ourSigningKey.publicKey.rawRepresentation,
+            sharedInfo: sharedInfo,
             outputByteCount: 32
         )
         
         let cypher = try SHCypher.encrypt(messageToSeal, using: symmetricKey)
-        let signature = try ourSigningKey.signature(for: cypher +
-                                                       ephemeralKey.publicKey.rawRepresentation +
-                                                       theirEncryptionKey.rawRepresentation)
+        let messageToSign = cypher + ephemeralKey.publicKey.rawRepresentation + receiverPublicKey.rawRepresentation
+        let signature = try senderSignatureKey.signature(for: messageToSign)
         
         return SHShareablePayload(ephemeralPublicKeyData: ephemeralKey.publicKey.rawRepresentation,
                                   cyphertext: cypher,
@@ -94,8 +94,6 @@ public struct SHCypher {
             outputByteCount: 32
         )
         
-        let sealedBox = try! AES.GCM.SealedBox(combined: sealedMessage.cyphertext)
-        
-        return try AES.GCM.open(sealedBox, using: symmetricKey)
+        return try self.decrypt(data: sealedMessage.cyphertext, using: symmetricKey)
     }
 }

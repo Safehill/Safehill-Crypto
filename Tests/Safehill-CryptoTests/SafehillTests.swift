@@ -5,11 +5,17 @@ import CryptoKit
 final class SafehillTests: XCTestCase {
     
     func testEncryptDecryptSharedSecret() throws {
-        let originalString = "This is a test"
+        let originalString = "This is our secret"
         let clear = originalString.data(using: .utf8)!
         
         let key = SymmetricKey(size: .bits256)
         let cypher = try SHCypher.encrypt(clear, using: key)
+        
+        /// Ensure 2 encryptions generate different results (randomness) and that base64 encoding is stable
+        let cypher2 = try SHCypher.encrypt(clear, using: key)
+        XCTAssertEqual(cypher.base64EncodedString(), cypher.base64EncodedString())
+        XCTAssertNotEqual(cypher.base64EncodedString(), cypher2.base64EncodedString())
+        XCTAssertEqual(cypher2.base64EncodedString(), cypher2.base64EncodedString())
         
         let decrypted = try SHCypher.decrypt(data: cypher, using: key)
         let decryptedString = String(data: decrypted, encoding: .utf8)
@@ -17,33 +23,92 @@ final class SafehillTests: XCTestCase {
         XCTAssertEqual(originalString, decryptedString)
     }
     
-    func testEncryptDecryptWithPublicKeySignature() throws {
-        let originalString = "This is a test"
-        let d1 = originalString.data(using: .utf8)!
-        // Alice's keys and signature
-        let ephemeralSecret = P256.KeyAgreement.PrivateKey()
-        let Asignature = P256.Signing.PrivateKey()
-        // Bob's keys
-        let PB = P256.KeyAgreement.PrivateKey()
+    func testDecryptKotlinJavaSharedSecret() throws {
+        let clear = "Text to encrypt"
         
-        /* Alice sends encrypted d1 to Bob */
-        let Pd1 = SymmetricKey(size: .bits256)
-        let Ed1 = try SHCypher.encrypt(d1, using: Pd1)
-        let EBPd1 = try SHCypher.encrypt(Pd1.rawRepresentation,
-                                         to: PB.publicKey,
-                                         using: ephemeralSecret,
-                                         signedBy: Asignature)
+        let cypherBase64="geaWMwzC9G39anYi5be9/LDtydKeRdbV9e5A/EoXPw=="
+        let keyBase64="10/w7o2juYBrGMh32/KbveULW9jk2tejpyUAD+uC6PE="
+        let ivBase64="sqKsYi3dhXDTyRsB"
+        
+        let cypher = Data(base64Encoded: cypherBase64)!
+        let iv = Data(base64Encoded: ivBase64)!
+        let key = try SymmetricKey(rawRepresentation: Data(base64Encoded: keyBase64)!)
+        
+        let nonce = try AES.GCM.Nonce(data: Data(base64Encoded: ivBase64)!)
+        let iosCypher = try SHCypher.encrypt(clear.data(using: .utf8)!, using: key, nonce: nonce)
+        let iosCypherBase64 = iosCypher.base64EncodedString()
+        XCTAssertEqual(iosCypherBase64, "\(ivBase64)\(cypherBase64)")
+        
+        let decrypted = try SHCypher.decrypt(data: iv + cypher, using: key)
+        let decryptedString = String(data: decrypted, encoding: .utf8)
+        
+        XCTAssertEqual(clear, decryptedString)
+    }
+    
+    func testEncryptDecryptWithPublicKeySignature() throws {
+        let string = "This is a test"
+        let data = string.data(using: .utf8)!
+        
+        let senderSignatureKeys = P256.Signing.PrivateKey()
+        let receiverEncryptionKeys = P256.KeyAgreement.PrivateKey()
+        
+        let ephemeralSecret = P256.KeyAgreement.PrivateKey()
+        
+        let secret = SymmetricKey(size: .bits256)
+        let encryptedDataWithSecret = try SHCypher.encrypt(data, using: secret)
+        let encryptedSecretWithReceiverPublicKey = try SHCypher.encrypt(
+            secret.rawRepresentation,
+            to: receiverEncryptionKeys.publicKey,
+            using: ephemeralSecret,
+            signedBy: senderSignatureKeys
+        )
         
         /*
-         Alice uploads Ed1 and EBPd1 to the server. Bob retrieves both and …
-         Bob gets to d1 using his private key
+         SENDER shares `encryptedDataWithSecret` and `encryptedSecretUsingReceiverPublicKey` with RECEIVER.
+         RECEIVER decrypts `encryptedSecretUsingReceiverPublicKey` to retrieve `decryptedSecret`,
+         which can be used to decrypt `encryptedDataWithSecret`.
          */
-        let decryptedPd1 = try SHCypher.decrypt(EBPd1, using: PB, from: Asignature.publicKey)
-        let decryptedPd1Key = try SymmetricKey(rawRepresentation: decryptedPd1)
-        let decryptedd1 = try SHCypher.decrypt(data: Ed1, using: decryptedPd1Key)
-        let decryptedString = String(data: decryptedd1, encoding: .utf8)
+        let decryptedSecretData = try SHCypher.decrypt(
+            encryptedSecretWithReceiverPublicKey,
+            using: receiverEncryptionKeys,
+            from: senderSignatureKeys.publicKey
+        )
+        let decryptedSecret = try SymmetricKey(rawRepresentation: decryptedSecretData)
+        let decryptedData = try SHCypher.decrypt(data: encryptedDataWithSecret, using: decryptedSecret)
+        let decryptedString = String(data: decryptedData, encoding: .utf8)
         
-        XCTAssertEqual(originalString, decryptedString)
+        XCTAssertEqual(string, decryptedString)
+    }
+    
+    func testEncryptDecryptWithPublicKeySignatureJavaKotlinEquivalent() throws {
+        let string = "This is a test"
+        let data = string.data(using: .utf8)!
+        
+        let senderSignatureKeys = try P256.Signing.PrivateKey(derRepresentation: Data(base64Encoded: "MEECAQAwEwYHKoZIzj0CAQYIKoZIzj0DAQcEJzAlAgEBBCAOR3bJoS1nd5Gw0XSONtpIlz5mqJe4WT6LkGZf+w5oWg==")!)
+        let receiverEncryptionKeys = try P256.KeyAgreement.PrivateKey(derRepresentation: Data(base64Encoded: "MEECAQAwEwYHKoZIzj0CAQYIKoZIzj0DAQcEJzAlAgEBBCDe32Jdsu36/b2y7ABNa4H91wVE6XAujaQ4D6mBDjUimg==")!)
+        
+        let ephemeralSecret = try P256.KeyAgreement.PrivateKey(derRepresentation: Data(base64Encoded: "MEECAQAwEwYHKoZIzj0CAQYIKoZIzj0DAQcEJzAlAgEBBCAM39KUQHguCdY26PBqXykOJhHARAaEYRS8i75Mck2aFw==")!)
+        
+        let secret = try SymmetricKey(rawRepresentation: Data(base64Encoded: "Qd91ZA8Ojpok04GChToIhJAJDxrf2X7jcCKNi/SURV8=")!)
+        let encryptedSecret = try SHCypher.encrypt(data, using: secret, nonce: AES.GCM.Nonce(data: Data(base64Encoded: "Y8Lav7pxxBQisRfF")!))
+        let encryptedDataWithReceiverPublicKey = try SHCypher.encrypt(
+            secret.rawRepresentation,
+            to: receiverEncryptionKeys.publicKey,
+            using: ephemeralSecret,
+            signedBy: senderSignatureKeys
+        )
+        
+        /*
+         SENDER shares `encryptedDataWithSecret` and `encryptedSecretUsingReceiverPublicKey` with RECEIVER.
+         RECEIVER decrypts `encryptedSecretUsingReceiverPublicKey` to retrieve `decryptedSecret`,
+         which can be used to decrypt `encryptedDataWithSecret`.
+         */
+        let decryptedSecretData = try SHCypher.decrypt(encryptedDataWithReceiverPublicKey, using: receiverEncryptionKeys, from: senderSignatureKeys.publicKey)
+        let decryptedSecret = try SymmetricKey(rawRepresentation: decryptedSecretData)
+        let decryptedData = try SHCypher.decrypt(data: encryptedSecret, using: decryptedSecret)
+        let decryptedString = String(data: decryptedData, encoding: .utf8)
+        
+        XCTAssertEqual(string, decryptedString)
     }
 
     func testShareablePayloadAliceAndBob() throws {
