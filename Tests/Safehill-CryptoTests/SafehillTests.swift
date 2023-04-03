@@ -200,7 +200,7 @@ final class SafehillTests: XCTestCase {
         let digest512 = Data(SHA512.hash(data: data))
         let signatureForDigest = try user.signature(for: digest512)
         
-        let publicSignature = try P256.Signing.PublicKey(rawRepresentation: user.publicSignatureData)
+        let publicSignature = try P256.Signing.PublicKey(derRepresentation: user.publicSignatureData)
         XCTAssert(publicSignature.isValidSignature(signatureForData, for: data))
         XCTAssert(publicSignature.isValidSignature(signatureForDigest, for: digest512))
     }

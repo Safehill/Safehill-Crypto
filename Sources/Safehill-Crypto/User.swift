@@ -35,10 +35,10 @@ public struct SHRemoteCryptoUser : _SHCryptoUser, SHCryptoUser {
     public let publicSignatureData: Data
     
     var publicKey: P256.KeyAgreement.PublicKey {
-        try! P256.KeyAgreement.PublicKey(rawRepresentation: publicKeyData)
+        try! P256.KeyAgreement.PublicKey(derRepresentation: publicKeyData)
     }
     var signature: P256.Signing.PublicKey {
-        try! P256.Signing.PublicKey(rawRepresentation: publicKeyData)
+        try! P256.Signing.PublicKey(derRepresentation: publicKeyData)
     }
     
     public init(publicKeyData: Data, publicSignatureData: Data) throws {
@@ -82,13 +82,13 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
     }
     
     public var privateKeyData: Data {
-        self.privateKey.rawRepresentation
+        self.privateKey.derRepresentation
     }
     public var publicKeyData: Data {
-        self.privateKey.publicKey.rawRepresentation
+        self.privateKey.publicKey.derRepresentation
     }
     public var publicSignatureData: Data {
-        self.signature.rawRepresentation
+        self.signature.derRepresentation
     }
     
     static func generateKey() -> P256.KeyAgreement.PrivateKey {
@@ -118,14 +118,14 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
             throw SHLocalCryptoUser.InitializationError.invalidSignature(privateKeyDataBase64)
         }
         
-        privateKey = try P256.KeyAgreement.PrivateKey(rawRepresentation: privateKeyData)
-        privateSignature = try P256.Signing.PrivateKey(rawRepresentation: privateSignatureData)
+        privateKey = try P256.KeyAgreement.PrivateKey(derRepresentation: privateKeyData)
+        privateSignature = try P256.Signing.PrivateKey(derRepresentation: privateSignatureData)
     }
     
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(privateKey.rawRepresentation.base64EncodedString(), forKey: .privateKeyData)
-        try container.encode(privateSignature.rawRepresentation.base64EncodedString(), forKey: .privateSignatureData)
+        try container.encode(privateKey.derRepresentation.base64EncodedString(), forKey: .privateKeyData)
+        try container.encode(privateSignature.derRepresentation.base64EncodedString(), forKey: .privateSignatureData)
     }
     
     public init(key: P256.KeyAgreement.PrivateKey, signature: P256.Signing.PrivateKey) {
@@ -152,7 +152,7 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         }
         
 #if DEBUG
-        let publicSignatureData = sig.publicKey.rawRepresentation
+        let publicSignatureData = sig.publicKey.derRepresentation
         let identifier = SHHash.stringDigest(for: publicSignatureData)
         log.info("Found keys in keychain \(label). Derived user identifier is \(identifier))")
 #endif
@@ -175,11 +175,11 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
             }
         }
 #if DEBUG
-        let publicSignatureData = privateSignature.publicKey.rawRepresentation
+        let publicSignatureData = privateSignature.publicKey.derRepresentation
         var identifier = SHHash.stringDigest(for: publicSignatureData)
         log.info("Saving keys in keychain \(label). Derived user identifier is \(identifier))")
         let retrievedPrivateSignature = try SHKeychain.retrieveKey(label: label + ".signature") as P256.Signing.PrivateKey?
-        identifier = SHHash.stringDigest(for: retrievedPrivateSignature!.publicKey.rawRepresentation)
+        identifier = SHHash.stringDigest(for: retrievedPrivateSignature!.publicKey.derRepresentation)
         log.info("Derived user identifier for current item in keychain \(label) is \(identifier))")
 #endif
     }
@@ -215,12 +215,12 @@ extension SHUserContext {
     public func shareable(data: Data, with user: SHCryptoUser) throws -> SHShareablePayload {
         log.info("encrypting data for user with public key \(user.publicKeyData.base64EncodedString()) public signature \(user.publicSignatureData.base64EncodedString())")
         let ephemeralKey = P256.KeyAgreement.PrivateKey()
-        let userPublicKey = try P256.KeyAgreement.PublicKey(rawRepresentation: user.publicKeyData)
+        let userPublicKey = try P256.KeyAgreement.PublicKey(derRepresentation: user.publicKeyData)
         let encrypted = try SHCypher.encrypt(data,
                                              to: userPublicKey,
                                              using: ephemeralKey,
                                              signedBy: myUser.privateSignature)
-        return SHShareablePayload(ephemeralPublicKeyData: ephemeralKey.publicKey.rawRepresentation,
+        return SHShareablePayload(ephemeralPublicKeyData: ephemeralKey.publicKey.derRepresentation,
                                   cyphertext: encrypted.cyphertext,
                                   signature: encrypted.signature,
                                   recipient: user)
@@ -230,7 +230,7 @@ extension SHUserContext {
                         usingEncryptedSecret encryptedSecret: SHShareablePayload,
                         receivedFrom sender: SHCryptoUser) throws -> Data {
         log.info("decrypting data received from sender with public key \(sender.publicKeyData.base64EncodedString()) public signature \(sender.publicSignatureData.base64EncodedString())")
-        let senderPublicSignature = try P256.Signing.PublicKey(rawRepresentation: sender.publicSignatureData)
+        let senderPublicSignature = try P256.Signing.PublicKey(derRepresentation: sender.publicSignatureData)
         let secretData = try SHCypher.decrypt(encryptedSecret,
                                               using: myUser.privateKey,
                                               from: senderPublicSignature)

@@ -38,7 +38,7 @@ public struct SHCypher {
     {
         let sharedSecretFromKeyAgreement = try ephemeralKey.sharedSecretFromKeyAgreement(with: receiverPublicKey)
         
-        let sharedInfo = ephemeralKey.publicKey.rawRepresentation + receiverPublicKey.rawRepresentation + senderSignatureKey.publicKey.rawRepresentation
+        let sharedInfo = ephemeralKey.publicKey.derRepresentation + receiverPublicKey.derRepresentation + senderSignatureKey.publicKey.derRepresentation
         let symmetricKey = sharedSecretFromKeyAgreement.hkdfDerivedSymmetricKey(
             using: SHA256.self,
             salt: protocolSalt,
@@ -47,12 +47,12 @@ public struct SHCypher {
         )
         
         let cypher = try SHCypher.encrypt(messageToSeal, using: symmetricKey)
-        let messageToSign = cypher + ephemeralKey.publicKey.rawRepresentation + receiverPublicKey.rawRepresentation
+        let messageToSign = cypher + ephemeralKey.publicKey.derRepresentation + receiverPublicKey.derRepresentation
         let signature = try senderSignatureKey.signature(for: messageToSign)
         
-        return SHShareablePayload(ephemeralPublicKeyData: ephemeralKey.publicKey.rawRepresentation,
+        return SHShareablePayload(ephemeralPublicKeyData: ephemeralKey.publicKey.derRepresentation,
                                   cyphertext: cypher,
-                                  signature: signature.rawRepresentation)
+                                  signature: signature.derRepresentation)
     }
 
 
@@ -66,8 +66,8 @@ public struct SHCypher {
         using ourKeyEncryptionKeyData: Data,
         from theirSigningKeyData: Data) throws -> Data
     {
-        let encryptionKey = try P256.KeyAgreement.PrivateKey(rawRepresentation: ourKeyEncryptionKeyData)
-        let signingKey = try P256.Signing.PublicKey(rawRepresentation: theirSigningKeyData)
+        let encryptionKey = try P256.KeyAgreement.PrivateKey(derRepresentation: ourKeyEncryptionKeyData)
+        let signingKey = try P256.Signing.PublicKey(derRepresentation: theirSigningKeyData)
         return try SHCypher.decrypt(sealedMessage, using: encryptionKey, from: signingKey)
     }
     
@@ -76,21 +76,21 @@ public struct SHCypher {
         using ourKeyEncryptionKey: P256.KeyAgreement.PrivateKey,
         from theirSigningKey: P256.Signing.PublicKey) throws -> Data
     {
-        let data = sealedMessage.cyphertext + sealedMessage.ephemeralPublicKeyData + ourKeyEncryptionKey.publicKey.rawRepresentation
-        let signature = try P256.Signing.ECDSASignature(rawRepresentation: sealedMessage.signature)
+        let data = sealedMessage.cyphertext + sealedMessage.ephemeralPublicKeyData + ourKeyEncryptionKey.publicKey.derRepresentation
+        let signature = try P256.Signing.ECDSASignature(derRepresentation: sealedMessage.signature)
         guard theirSigningKey.isValidSignature(signature, for: data) else {
             throw DecryptionError.authenticationError
         }
         
-        let ephemeralKey = try P256.KeyAgreement.PublicKey(rawRepresentation: sealedMessage.ephemeralPublicKeyData)
+        let ephemeralKey = try P256.KeyAgreement.PublicKey(derRepresentation: sealedMessage.ephemeralPublicKeyData)
         let sharedSecret = try ourKeyEncryptionKey.sharedSecretFromKeyAgreement(with: ephemeralKey)
         
         let symmetricKey = sharedSecret.hkdfDerivedSymmetricKey(
             using: SHA256.self,
             salt: protocolSalt,
-            sharedInfo: ephemeralKey.rawRepresentation +
-                ourKeyEncryptionKey.publicKey.rawRepresentation +
-                theirSigningKey.rawRepresentation,
+            sharedInfo: ephemeralKey.derRepresentation +
+                ourKeyEncryptionKey.publicKey.derRepresentation +
+                theirSigningKey.derRepresentation,
             outputByteCount: 32
         )
         
