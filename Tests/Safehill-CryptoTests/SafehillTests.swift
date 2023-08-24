@@ -4,6 +4,19 @@ import CryptoKit
 
 final class SafehillTests: XCTestCase {
     
+    func testUserIdentifier() throws {
+        let kotlinGeneratedBase64SignatureData = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFp2uNurkYUh3U7O9m/wO+Oqcwnisxs97I7EmYuuGh3z4t72rNyI/WZcB+5DITlS4L0ydZhF8FAzv5FLMPmE5lw=="
+        guard let signatureData = Data(base64Encoded: kotlinGeneratedBase64SignatureData) else {
+            XCTAssert(false)
+            return
+        }
+        let swiftIdentifier = SHHash.stringDigest(for: signatureData)
+        
+        let kotlinIdentifier = "dc292efc6bc0b4b4f53ca90bb30a6e741b45712f665f9cf32f01d3aca3e76e173ee4251aebb2df945a7179dcf45cbfcc1868ec8b8d35447e09533f85c2b520d3"
+
+        XCTAssertEqual(swiftIdentifier, kotlinIdentifier)
+    }
+    
     func testEncryptDecryptSharedSecret() throws {
         let originalString = "This is our secret"
         let clear = originalString.data(using: .utf8)!
