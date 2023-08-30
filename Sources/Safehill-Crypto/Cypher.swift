@@ -19,7 +19,7 @@ public struct SHCypher {
         case authenticationError
     }
     
-    static func generateRandomBytes() -> Data? {
+    public static func generateRandomBytes() -> Data? {
         var keyData = Data(count: 32)
         let result = keyData.withUnsafeMutableBytes {
             SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress!)
