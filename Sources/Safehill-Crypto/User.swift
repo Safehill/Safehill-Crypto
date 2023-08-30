@@ -212,14 +212,17 @@ public struct SHUserContext {
 
 
 extension SHUserContext {
-    public func shareable(data: Data, with user: SHCryptoUser) throws -> SHShareablePayload {
+    public func shareable(data: Data, protocolSalt: Data, with user: SHCryptoUser) throws -> SHShareablePayload {
         log.info("encrypting data for user with public key \(user.publicKeyData.base64EncodedString()) public signature \(user.publicSignatureData.base64EncodedString())")
         let ephemeralKey = P256.KeyAgreement.PrivateKey()
         let userPublicKey = try P256.KeyAgreement.PublicKey(derRepresentation: user.publicKeyData)
-        let encrypted = try SHCypher.encrypt(data,
-                                             to: userPublicKey,
-                                             using: ephemeralKey,
-                                             signedBy: myUser.privateSignature)
+        let encrypted = try SHCypher.encrypt(
+            data,
+            receiverPublicKey: userPublicKey,
+            ephemeralKey: ephemeralKey,
+            protocolSalt: protocolSalt,
+            signedBy: myUser.privateSignature
+        )
         return SHShareablePayload(ephemeralPublicKeyData: ephemeralKey.publicKey.derRepresentation,
                                   cyphertext: encrypted.cyphertext,
                                   signature: encrypted.signature,
@@ -228,12 +231,16 @@ extension SHUserContext {
     
     public func decrypt(_ data: Data,
                         usingEncryptedSecret encryptedSecret: SHShareablePayload,
+                        protocolSalt: Data,
                         receivedFrom sender: SHCryptoUser) throws -> Data {
         log.info("decrypting data received from sender with public key \(sender.publicKeyData.base64EncodedString()) public signature \(sender.publicSignatureData.base64EncodedString())")
         let senderPublicSignature = try P256.Signing.PublicKey(derRepresentation: sender.publicSignatureData)
-        let secretData = try SHCypher.decrypt(encryptedSecret,
-                                              using: myUser.privateKey,
-                                              from: senderPublicSignature)
+        let secretData = try SHCypher.decrypt(
+            encryptedSecret,
+            encryptionKey: myUser.privateKey,
+            protocolSalt: protocolSalt,
+            signedBy: senderPublicSignature
+        )
         let secret = try SymmetricKey(rawRepresentation: secretData)
         return try SHCypher.decrypt(data: data, using: secret)
     }

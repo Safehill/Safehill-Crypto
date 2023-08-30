@@ -2,7 +2,9 @@ import XCTest
 @testable import Safehill_Crypto
 import CryptoKit
 
-final class SafehillTests: XCTestCase {
+let protocolSalt = Data(base64Encoded: "/5RWVwIP//+i///Z")!
+
+final class SafehillCryptoTests: XCTestCase {
     
     func testUserIdentifier() throws {
         let kotlinGeneratedBase64SignatureData = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFp2uNurkYUh3U7O9m/wO+Oqcwnisxs97I7EmYuuGh3z4t72rNyI/WZcB+5DITlS4L0ydZhF8FAzv5FLMPmE5lw=="
@@ -71,8 +73,9 @@ final class SafehillTests: XCTestCase {
         let encryptedDataWithSecret = try SHCypher.encrypt(data, using: secret)
         let encryptedSecretWithReceiverPublicKey = try SHCypher.encrypt(
             secret.rawRepresentation,
-            to: receiverEncryptionKeys.publicKey,
-            using: ephemeralSecret,
+            receiverPublicKey: receiverEncryptionKeys.publicKey,
+            ephemeralKey: ephemeralSecret,
+            protocolSalt: protocolSalt,
             signedBy: senderSignatureKeys
         )
         
@@ -83,8 +86,9 @@ final class SafehillTests: XCTestCase {
          */
         let decryptedSecretData = try SHCypher.decrypt(
             encryptedSecretWithReceiverPublicKey,
-            using: receiverEncryptionKeys,
-            from: senderSignatureKeys.publicKey
+            encryptionKey: receiverEncryptionKeys,
+            protocolSalt: protocolSalt,
+            signedBy: senderSignatureKeys.publicKey
         )
         let decryptedSecret = try SymmetricKey(rawRepresentation: decryptedSecretData)
         let decryptedData = try SHCypher.decrypt(data: encryptedDataWithSecret, using: decryptedSecret)
@@ -106,8 +110,9 @@ final class SafehillTests: XCTestCase {
         let encryptedSecret = try SHCypher.encrypt(data, using: secret, nonce: AES.GCM.Nonce(data: Data(base64Encoded: "Y8Lav7pxxBQisRfF")!))
         let encryptedDataWithReceiverPublicKey = try SHCypher.encrypt(
             secret.rawRepresentation,
-            to: receiverEncryptionKeys.publicKey,
-            using: ephemeralSecret,
+            receiverPublicKey: receiverEncryptionKeys.publicKey,
+            ephemeralKey: ephemeralSecret,
+            protocolSalt: protocolSalt,
             signedBy: senderSignatureKeys
         )
         
@@ -116,7 +121,12 @@ final class SafehillTests: XCTestCase {
          RECEIVER decrypts `encryptedSecretUsingReceiverPublicKey` to retrieve `decryptedSecret`,
          which can be used to decrypt `encryptedDataWithSecret`.
          */
-        let decryptedSecretData = try SHCypher.decrypt(encryptedDataWithReceiverPublicKey, using: receiverEncryptionKeys, from: senderSignatureKeys.publicKey)
+        let decryptedSecretData = try SHCypher.decrypt(
+            encryptedDataWithReceiverPublicKey,
+            encryptionKey: receiverEncryptionKeys,
+            protocolSalt: protocolSalt,
+            signedBy: senderSignatureKeys.publicKey
+        )
         let decryptedSecret = try SymmetricKey(rawRepresentation: decryptedSecretData)
         let decryptedData = try SHCypher.decrypt(data: encryptedSecret, using: decryptedSecret)
         let decryptedString = String(data: decryptedData, encoding: .utf8)
@@ -136,13 +146,20 @@ final class SafehillTests: XCTestCase {
         let encryptedData = try SHEncryptedData(clearData: stringAsData)
         // upload encrypted data
         
-        let encryptedSecret = try aliceContext.shareable(data: encryptedData.privateSecret.rawRepresentation, with: bob)
+        let encryptedSecret = try aliceContext.shareable(
+            data: encryptedData.privateSecret.rawRepresentation,
+            protocolSalt: protocolSalt,
+            with: bob
+        )
         // upload encrypted secret
         
         /** Once Bob gets encryptedData, encryptedSecret  */
-        let decryptedData = try bobContext.decrypt(encryptedData.encryptedData,
-                                                   usingEncryptedSecret: encryptedSecret,
-                                                   receivedFrom: alice)
+        let decryptedData = try bobContext.decrypt(
+            encryptedData.encryptedData,
+            usingEncryptedSecret: encryptedSecret,
+            protocolSalt: protocolSalt,
+            receivedFrom: alice
+        )
         let decryptedString = String(data: decryptedData, encoding: .utf8)
         
         XCTAssertEqual(originalString, decryptedString)
@@ -152,9 +169,12 @@ final class SafehillTests: XCTestCase {
         let hackerContext = SHUserContext(user: hacker)
         
         do {
-            let _ = try hackerContext.decrypt(encryptedData.encryptedData,
-                                              usingEncryptedSecret: encryptedSecret,
-                                              receivedFrom: alice)
+            let _ = try hackerContext.decrypt(
+                encryptedData.encryptedData,
+                usingEncryptedSecret: encryptedSecret,
+                protocolSalt: protocolSalt,
+                receivedFrom: alice
+            )
             XCTFail()
         } catch SHCypher.DecryptionError.authenticationError {
             print("Authentication failed for hacker")
@@ -165,6 +185,7 @@ final class SafehillTests: XCTestCase {
             let _ = try aliceContext.decrypt(
                 encryptedData.encryptedData,
                 usingEncryptedSecret: encryptedSecret,
+                protocolSalt: protocolSalt,
                 receivedFrom: alice
             )
             XCTFail()
@@ -182,13 +203,18 @@ final class SafehillTests: XCTestCase {
         // upload encrypted data
         
         let aliceContext = SHUserContext(user: alice)
-        let encryptedSecret = try aliceContext.shareable(data: encryptedData.privateSecret.rawRepresentation, with: alice)
+        let encryptedSecret = try aliceContext.shareable(
+            data: encryptedData.privateSecret.rawRepresentation,
+            protocolSalt: protocolSalt,
+            with: alice
+        )
         // upload encrypted secret
         
         /** Once Bob gets encryptedData, encryptedSecret  */
         let decryptedData = try aliceContext.decrypt(
             encryptedData.encryptedData,
             usingEncryptedSecret: encryptedSecret,
+            protocolSalt: protocolSalt,
             receivedFrom: alice
         )
         let decryptedString = String(data: decryptedData, encoding: .utf8)

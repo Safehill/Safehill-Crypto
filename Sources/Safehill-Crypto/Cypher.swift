@@ -12,14 +12,6 @@ import Foundation
 import CryptoKit
 #endif
 
-// TODO: Edit this. Should this be common across all clients, or unique per user?
-let iv: [UInt8] = [0x00, 0x01, 0x02, 0x03,
-                   0x04, 0x05, 0x06, 0x07,
-                   0x08, 0x09, 0x0A, 0x0B
-]
-let STATIC_IV = Data(base64Encoded: "/5RWVwIP//+i///Z")!
-let protocolSalt = Data(bytes: iv, count: iv.count)
-
 
 public struct SHCypher {
     
@@ -33,8 +25,9 @@ public struct SHCypher {
 
     static func encrypt(
         _ messageToSeal: Data,
-        to receiverPublicKey: P256.KeyAgreement.PublicKey,
-        using ephemeralKey: P256.KeyAgreement.PrivateKey,
+        receiverPublicKey: P256.KeyAgreement.PublicKey,
+        ephemeralKey: P256.KeyAgreement.PrivateKey,
+        protocolSalt: Data,
         signedBy senderSignatureKey: P256.Signing.PrivateKey) throws -> SHShareablePayload
     {
         let sharedSecretFromKeyAgreement = try ephemeralKey.sharedSecretFromKeyAgreement(with: receiverPublicKey)
@@ -64,18 +57,20 @@ public struct SHCypher {
     
     public static func decrypt(
         _ sealedMessage: SHShareablePayload,
-        using ourKeyEncryptionKeyData: Data,
+        encryptionKeyData ourKeyEncryptionKeyData: Data,
+        protocolSalt: Data,
         from theirSigningKeyData: Data) throws -> Data
     {
         let encryptionKey = try P256.KeyAgreement.PrivateKey(derRepresentation: ourKeyEncryptionKeyData)
         let signingKey = try P256.Signing.PublicKey(derRepresentation: theirSigningKeyData)
-        return try SHCypher.decrypt(sealedMessage, using: encryptionKey, from: signingKey)
+        return try SHCypher.decrypt(sealedMessage, encryptionKey: encryptionKey, protocolSalt: protocolSalt, signedBy: signingKey)
     }
     
     internal static func decrypt(
         _ sealedMessage: SHShareablePayload,
-        using ourKeyEncryptionKey: P256.KeyAgreement.PrivateKey,
-        from theirSigningKey: P256.Signing.PublicKey) throws -> Data
+        encryptionKey ourKeyEncryptionKey: P256.KeyAgreement.PrivateKey,
+        protocolSalt: Data,
+        signedBy theirSigningKey: P256.Signing.PublicKey) throws -> Data
     {
         let data = sealedMessage.cyphertext + sealedMessage.ephemeralPublicKeyData + ourKeyEncryptionKey.publicKey.derRepresentation
         let signature = try P256.Signing.ECDSASignature(derRepresentation: sealedMessage.signature)
