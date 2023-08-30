@@ -19,6 +19,18 @@ public struct SHCypher {
         case authenticationError
     }
     
+    static func generateRandomBytes() -> Data? {
+        var keyData = Data(count: 32)
+        let result = keyData.withUnsafeMutableBytes {
+            SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress!)
+        }
+        if result == errSecSuccess {
+            return keyData
+        } else {
+            return nil
+        }
+    }
+    
     static func encrypt(_ data: Data, using key: SymmetricKey, nonce: AES.GCM.Nonce? = nil) throws -> Data {
         return try AES.GCM.seal(data, using: key, nonce: nonce).combined!
     }

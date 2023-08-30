@@ -2,7 +2,7 @@ import XCTest
 @testable import Safehill_Crypto
 import CryptoKit
 
-let protocolSalt = Data(base64Encoded: "/5RWVwIP//+i///Z")!
+let protocolSalt = SHCypher.generateRandomBytes()!
 
 final class SafehillCryptoTests: XCTestCase {
     
