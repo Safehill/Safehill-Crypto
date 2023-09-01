@@ -21,7 +21,11 @@ public struct SHCypher {
     
     public static func generateRandomBytes(length: Int = 32) -> Data? {
 #if os(Linux)
-        try! SecureBytes(count: length)
+        SymmetricKey.init(size: .init(bitCount: length))
+        /// Not sure why the struct `SecureBytes` is not public in Crypto
+        /// `SymmetricKey` will do the trick for now (but is it less cryptographically secure?)
+        /// https://security.stackexchange.com/questions/270500/symmetrickey-vs-secrandomcopybytes
+//        try! SecureBytes(count: length)
 #else
         var bytes = Data(count: length)
         let result = bytes.withUnsafeMutableBytes {
