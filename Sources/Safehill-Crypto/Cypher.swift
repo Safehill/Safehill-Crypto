@@ -39,6 +39,27 @@ public struct SHCypher {
 #endif
     }
     
+    public static func generateOTPCode(secret: Data, digits: Int = 6, expiresIn period: TimeInterval = TimeInterval(30)) -> String {
+        let symmetricKey = SymmetricKey(data: secret)
+        var counter = UInt64(Date().timeIntervalSince1970 / period).bigEndian
+
+        let counterData = withUnsafeBytes(of: &counter) { Array($0) }
+        let hash = HMAC<Insecure.SHA1>.authenticationCode(for: counterData, using: symmetricKey)
+     
+        var truncatedHash = hash.withUnsafeBytes { ptr -> UInt32 in
+            let offset = ptr[hash.byteCount - 1] & 0x0f
+     
+            let truncatedHashPtr = ptr.baseAddress! + Int(offset)
+            return truncatedHashPtr.bindMemory(to: UInt32.self, capacity: 1).pointee
+        }
+     
+        truncatedHash = UInt32(bigEndian: truncatedHash)
+        truncatedHash = truncatedHash & 0x7FFF_FFFF
+        truncatedHash = truncatedHash % UInt32(pow(10, Float(digits)))
+     
+        return String(format: "%0*u", digits, truncatedHash)
+    }
+    
     static func encrypt(_ data: Data, using key: SymmetricKey, nonce: AES.GCM.Nonce? = nil) throws -> Data {
         return try AES.GCM.seal(data, using: key, nonce: nonce).combined!
     }

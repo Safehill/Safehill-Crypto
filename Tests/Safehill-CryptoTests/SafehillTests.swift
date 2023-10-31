@@ -2,9 +2,9 @@ import XCTest
 @testable import Safehill_Crypto
 import CryptoKit
 
-let protocolSalt = SHCypher.generateRandomBytes()!
-
 final class SafehillCryptoTests: XCTestCase {
+    
+    let protocolSalt = SHCypher.generateRandomBytes()!
     
     func testUserIdentifier() throws {
         let kotlinGeneratedBase64SignatureData = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFp2uNurkYUh3U7O9m/wO+Oqcwnisxs97I7EmYuuGh3z4t72rNyI/WZcB+5DITlS4L0ydZhF8FAzv5FLMPmE5lw=="
@@ -242,5 +242,25 @@ final class SafehillCryptoTests: XCTestCase {
         let publicSignature = try P256.Signing.PublicKey(derRepresentation: user.publicSignatureData)
         XCTAssert(publicSignature.isValidSignature(signatureForData, for: data))
         XCTAssert(publicSignature.isValidSignature(signatureForDigest, for: digest512))
+    }
+    
+    func testGenerateOTP() {
+        let secret = SymmetricKey(size: .bits128).rawRepresentation
+        let code1 = SHCypher.generateOTPCode(secret: secret, digits: 6)
+        XCTAssert(code1.count == 6)
+        
+        let code2 = SHCypher.generateOTPCode(secret: secret, digits: 6)
+        XCTAssert(code1.count == 6)
+        XCTAssert(code1 == code2)
+        
+        let timeInterval = TimeInterval(0.5)
+        let code3 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: timeInterval)
+        let code4 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: timeInterval)
+        XCTAssert(code3 == code4)
+        
+        sleep(1)
+        
+        let code5 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: timeInterval)
+        XCTAssert(code4 != code5)
     }
 }
