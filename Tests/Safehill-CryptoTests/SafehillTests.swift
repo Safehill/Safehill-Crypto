@@ -262,5 +262,64 @@ final class SafehillCryptoTests: XCTestCase {
         
         let code5 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: timeInterval)
         XCTAssert(code4 != code5)
+        
+        let largerTimeInterval = TimeInterval(5)
+        let code6 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: largerTimeInterval)
+        XCTAssert(code5 != code6)
+        
+        let code7 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: largerTimeInterval)
+        XCTAssert(code6 == code7)
+        
+        sleep(1)
+        
+        let code8 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: largerTimeInterval)
+        let code9 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: largerTimeInterval)
+        XCTAssert(code8 == code9)
+        
+        sleep(4)
+        
+        let code10 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: largerTimeInterval)
+        XCTAssert(code9 != code10)
+    }
+    
+    func testDerivedSymmetricKey() throws {
+        let secret = SymmetricKey(size: .bits256)
+        XCTAssertEqual(SymmetricKey(data: secret.rawRepresentation), secret)
+        
+        let user1 = SHLocalCryptoUser()
+        let user2 = SHLocalCryptoUser()
+        
+        // User 1 encrypts the secret for user 1 (self)
+        let encryptedSecretForSelf = try SHUserContext(user: user1).shareable(
+            data: secret.rawRepresentation,
+            protocolSalt: protocolSalt,
+            with: SHRemoteCryptoUser(publicKeyData: user1.publicKeyData, publicSignatureData: user1.publicSignatureData)
+        )
+        
+        // User 1 decrypts the secret encoded with user1 public key
+        let decryptedSecret = try SHCypher.decrypt(
+            encryptedSecretForSelf,
+            encryptionKeyData: user1.privateKeyData,
+            protocolSalt: protocolSalt,
+            from: user1.publicSignatureData
+        )
+        XCTAssertEqual(secret.rawRepresentation, decryptedSecret)
+        XCTAssertEqual(SymmetricKey(data: secret.rawRepresentation), SymmetricKey(data: decryptedSecret))
+        
+        // User 1 encrypts the secret for user 2
+        let encryptedSecretForUser2 = try SHUserContext(user: user1).shareable(
+            data: secret.rawRepresentation,
+            protocolSalt: protocolSalt,
+            with: SHRemoteCryptoUser(publicKeyData: user2.publicKeyData, publicSignatureData: user2.publicSignatureData)
+        )
+        // User 2 decrypts the secret encoded with user1 public key
+        let decryptedSecret2 = try SHCypher.decrypt(
+            encryptedSecretForUser2,
+            encryptionKeyData: user2.privateKeyData,
+            protocolSalt: protocolSalt,
+            from: user1.publicSignatureData
+        )
+        XCTAssertEqual(secret.rawRepresentation, decryptedSecret2)
+        XCTAssertEqual(SymmetricKey(data: secret.rawRepresentation), SymmetricKey(data: decryptedSecret2))
     }
 }
