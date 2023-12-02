@@ -246,39 +246,62 @@ final class SafehillCryptoTests: XCTestCase {
     
     func testGenerateOTP() {
         let secret = SymmetricKey(size: .bits128).rawRepresentation
-        let code1 = SHCypher.generateOTPCode(secret: secret, digits: 6)
+        var (code1, millisLeft1) = SHCypher.generateOTPCode(secret: secret, digits: 6)
         XCTAssert(code1.count == 6)
+        XCTAssert(millisLeft1 < 30000) // Default is 30s, time left should never exceed it
         
-        let code2 = SHCypher.generateOTPCode(secret: secret, digits: 6)
-        XCTAssert(code1.count == 6)
+        if millisLeft1 < 10 {
+            // If there isn't enough time left to do the comparison, re-generate it
+            (code1, millisLeft1) = SHCypher.generateOTPCode(secret: secret, digits: 6)
+        }
+        
+        let (code2, millisLeft2) = SHCypher.generateOTPCode(secret: secret, digits: 6)
+        XCTAssert(code2.count == 6)
         XCTAssert(code1 == code2)
+        XCTAssert(millisLeft2 < 30000)
         
-        let timeInterval = TimeInterval(0.5)
-        let code3 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: timeInterval)
-        let code4 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: timeInterval)
+        let timeInterval = TimeInterval(0.1)
+        var (code3, millisLeft3) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: timeInterval)
+        if millisLeft3 < 10 {
+            (code3, millisLeft3) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: timeInterval)
+        }
+        let (code4, millisLeft4) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: timeInterval)
         XCTAssert(code3 == code4)
+        XCTAssert(millisLeft3 < 100)
+        XCTAssert(millisLeft4 < 100)
         
-        sleep(1)
+        sleep(UInt32(millisLeft4 / 1000 + 1))
         
-        let code5 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: timeInterval)
+        var (code5, millisLeft5) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: timeInterval)
         XCTAssert(code4 != code5)
+        if millisLeft5 < 10 {
+            (code5, millisLeft5) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: timeInterval)
+        }
         
-        let largerTimeInterval = TimeInterval(5)
-        let code6 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: largerTimeInterval)
+        let largerTimeInterval = TimeInterval(2)
+        var (code6, millisLeft6) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: largerTimeInterval)
         XCTAssert(code5 != code6)
+        if millisLeft6 < 10 {
+            (code6, millisLeft6) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: largerTimeInterval)
+        }
         
-        let code7 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: largerTimeInterval)
+        let (code7, millisLeft7) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: largerTimeInterval)
         XCTAssert(code6 == code7)
+        XCTAssert(millisLeft6 < 2000)
+        XCTAssert(millisLeft6 < 2000)
         
-        sleep(1)
+        sleep(UInt32(millisLeft7 / 1000 + 1))
         
-        let code8 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: largerTimeInterval)
-        let code9 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: largerTimeInterval)
+        var (code8, millisLeft8) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: largerTimeInterval)
+        if millisLeft8 < 10 {
+            (code8, millisLeft8) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: largerTimeInterval)
+        }
+        let (code9, millisLeft9) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: largerTimeInterval)
         XCTAssert(code8 == code9)
         
-        sleep(4)
+        sleep(UInt32(millisLeft9 / 1000 + 1))
         
-        let code10 = SHCypher.generateOTPCode(secret: secret, digits: 6, expiresIn: largerTimeInterval)
+        let (code10, _) = SHCypher.generateOTPCode(secret: secret, digits: 6, step: largerTimeInterval)
         XCTAssert(code9 != code10)
     }
     

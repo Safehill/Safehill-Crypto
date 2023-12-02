@@ -39,11 +39,12 @@ public struct SHCypher {
 #endif
     }
     
-    public static func generateOTPCode(secret: Data, digits: Int = 6, expiresIn period: TimeInterval = TimeInterval(30)) -> String {
+    public static func generateOTPCode(secret: Data, digits: Int = 6, step period: TimeInterval = TimeInterval(30)) -> (String, UInt64) {
         let symmetricKey = SymmetricKey(data: secret)
-        var counter = UInt64(Date().timeIntervalSince1970 / period).bigEndian
+        let counter = UInt64(Date().timeIntervalSince1970 / period)
+        var counterBigEndian = counter.bigEndian
 
-        let counterData = withUnsafeBytes(of: &counter) { Array($0) }
+        let counterData = withUnsafeBytes(of: &counterBigEndian) { Array($0) }
         let hash = HMAC<Insecure.SHA1>.authenticationCode(for: counterData, using: symmetricKey)
      
         var truncatedHash = hash.withUnsafeBytes { ptr -> UInt32 in
@@ -56,8 +57,11 @@ public struct SHCypher {
         truncatedHash = UInt32(bigEndian: truncatedHash)
         truncatedHash = truncatedHash & 0x7FFF_FFFF
         truncatedHash = truncatedHash % UInt32(pow(10, Float(digits)))
+        
+        let endEpochMillis = (Double(counter+1) * period * 1000) - 1
+        let millisValid = UInt64(endEpochMillis - Double(Date().timeIntervalSince1970 * 1000))
      
-        return String(format: "%0*u", digits, truncatedHash)
+        return (String(format: "%0*u", digits, truncatedHash), millisValid)
     }
     
     static func encrypt(_ data: Data, using key: SymmetricKey, nonce: AES.GCM.Nonce? = nil) throws -> Data {
