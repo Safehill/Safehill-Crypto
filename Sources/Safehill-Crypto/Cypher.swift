@@ -95,7 +95,7 @@ public struct SHCypher {
     }
 
 
-    static func decrypt(data: Data, using key: SymmetricKey) throws -> Data {
+    public static func decrypt(data: Data, using key: SymmetricKey) throws -> Data {
         let sealedBox = try AES.GCM.SealedBox(combined: data)
         return try AES.GCM.open(sealedBox, using: key)
     }

@@ -210,7 +210,7 @@ final class SafehillCryptoTests: XCTestCase {
         )
         // upload encrypted secret
         
-        /** Once Bob gets encryptedData, encryptedSecret  */
+        /** Once Alice gets encryptedData, encryptedSecret  */
         let decryptedData = try aliceContext.decrypt(
             encryptedData.encryptedData,
             usingEncryptedSecret: encryptedSecret,
