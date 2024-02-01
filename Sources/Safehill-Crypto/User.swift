@@ -233,8 +233,15 @@ extension SHUserContext {
                         usingEncryptedSecret encryptedSecret: SHShareablePayload,
                         protocolSalt: Data,
                         receivedFrom sender: SHCryptoUser) throws -> Data {
-        log.info("decrypting data received from sender with public key \(sender.publicKeyData.base64EncodedString()) public signature \(sender.publicSignatureData.base64EncodedString())")
-        let senderPublicSignature = try P256.Signing.PublicKey(derRepresentation: sender.publicSignatureData)
+        try self.decrypt(data, usingEncryptedSecret: encryptedSecret, protocolSalt: protocolSalt, signedWith: sender.publicSignatureData)
+    }
+    
+    public func decrypt(_ data: Data,
+                        usingEncryptedSecret encryptedSecret: SHShareablePayload,
+                        protocolSalt: Data,
+                        signedWith senderPublicSignatureData: Data) throws -> Data {
+        log.info("decrypting data received from sender with public signature \(senderPublicSignatureData.base64EncodedString())")
+        let senderPublicSignature = try P256.Signing.PublicKey(derRepresentation: senderPublicSignatureData)
         let secretData = try SHCypher.decrypt(
             encryptedSecret,
             encryptionKey: myUser.privateKey,
