@@ -166,7 +166,7 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
             try SHKeychain.storeKey(privateSignature, label: label + ".signature")
         } catch SHKeychain.Error.unexpectedStatus(let status) {
             if status == -25299 && force == true {
-                try? self.deleteKeysInKeychain(withLabel: label)
+                try? Self.deleteKeysInKeychain(withLabel: label)
                 
                 try SHKeychain.storeKey(privateKey, label: label + ".key")
                 try SHKeychain.storeKey(privateSignature, label: label + ".signature")
@@ -184,7 +184,7 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
 #endif
     }
     
-    public func deleteKeysInKeychain(withLabel label: String) throws {
+    public static func deleteKeysInKeychain(withLabel label: String) throws {
         try SHKeychain.removeKey(withLabel: label + ".key")
         try SHKeychain.removeKey(withLabel: label + ".signature")
 #if DEBUG
