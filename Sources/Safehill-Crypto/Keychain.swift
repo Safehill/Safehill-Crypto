@@ -78,8 +78,8 @@ extension SecureEnclave.P256.Signing.PrivateKey: GenericPasswordConvertible {
 public struct SHKeychain {
     
     public enum Error: CustomNSError, LocalizedError {
-        case generic(String)
-        case notFound
+        case invalidSecKeyRepresentation
+        case itemNotFound(String)
         case unexpectedStatus(OSStatus)
     }
     
@@ -93,7 +93,7 @@ public struct SHKeychain {
                                                 attributes as CFDictionary,
                                                 nil)
             else {
-                throw SHKeychain.Error.generic("Unable to create SecKey representation.")
+                throw SHKeychain.Error.invalidSecKeyRepresentation
         }
         
         // Describe the add operation.
@@ -145,7 +145,8 @@ public struct SHKeychain {
         // Convert the SecKey into a CryptoKit key.
         var error: Unmanaged<CFError>?
         guard let data = SecKeyCopyExternalRepresentation(secKey, &error) as Data? else {
-            throw SHKeychain.Error.generic(error.debugDescription)
+            log.error("failed to convert SecKey into CryptoKit key: \(error.debugDescription)")
+            throw SHKeychain.Error.invalidSecKeyRepresentation
         }
         return try T(x963Representation: data)
     }
@@ -174,7 +175,7 @@ public struct SHKeychain {
                      kSecAttrApplicationLabel: label] as [String: Any]
         
         let status = SecItemDelete(query as CFDictionary)
-        guard status != errSecItemNotFound else { throw SHKeychain.Error.notFound }
+        guard status != errSecItemNotFound else { throw SHKeychain.Error.itemNotFound(label) }
         guard status == errSecSuccess else {
             throw SHKeychain.Error.unexpectedStatus(status)
         }
@@ -186,7 +187,7 @@ public struct SHKeychain {
                      kSecAttrAccount: account]  as [String: Any]
         
         let status = SecItemDelete(query as CFDictionary)
-        guard status != errSecItemNotFound else { throw SHKeychain.Error.notFound }
+        guard status != errSecItemNotFound else { throw SHKeychain.Error.itemNotFound(account) }
         guard status == errSecSuccess else {
             throw SHKeychain.Error.unexpectedStatus(status)
         }

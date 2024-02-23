@@ -141,13 +141,13 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         guard let pk = privateKey, let sig = privateSignature  else {
             if privateKey == nil {
                 log.error("Couldn't find private key in keychain \(label)")
-                throw SHKeychain.Error.generic("No entry in keychain for \(label).key")
+                throw SHKeychain.Error.itemNotFound("\(label).key")
             } else if privateSignature == nil {
                 log.error("Couldn't find private signature in keychain \(label)")
-                throw SHKeychain.Error.generic("No entry in keychain for \(label).signature")
+                throw SHKeychain.Error.itemNotFound("\(label).signature")
             } else {
                 log.error("Couldn't find private key and private signature in keychain \(label)")
-                throw SHKeychain.Error.generic("No entry in keychain with label \(label)(.key|.signature)")
+                throw SHKeychain.Error.itemNotFound("\(label)(.key|.signature)")
             }
         }
         
