@@ -81,8 +81,11 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         self.privateSignature.publicKey
     }
     
-    public var privateKeyData: Data {
+    internal var privateKeyData: Data {
         self.privateKey.derRepresentation
+    }
+    internal var privateSignatureData: Data {
+        self.signature.derRepresentation
     }
     public var publicKeyData: Data {
         self.privateKey.publicKey.derRepresentation
