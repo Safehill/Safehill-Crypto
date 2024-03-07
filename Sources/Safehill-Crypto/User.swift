@@ -202,6 +202,13 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
     public func signature(for data: Data) throws -> P256.Signing.ECDSASignature {
         return try self.privateSignature.signature(for: data)
     }
+    
+    public func serializedPrivateKeys() -> (key: String, signature: String) {
+        return (
+            key: privateKey.derRepresentation.base64EncodedString(),
+            signature: privateSignature.derRepresentation.base64EncodedString()
+        )
+    }
 }
 
 
