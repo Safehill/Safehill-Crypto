@@ -141,10 +141,9 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         usingKeychainEntryWithLabel label: String,
         synchronizable: Bool
     ) throws {
-        let privateKey = try SHKeychain.retrieveKey(label: label + ".key", synchronizable: synchronizable) as P256.KeyAgreement.PrivateKey?
-        let privateSignature = try SHKeychain.retrieveKey(label: label + ".signature", synchronizable: synchronizable) as P256.Signing.PrivateKey?
+        let (privateKey, privateSignature) = try Self.keysInKeychain(label: label, synchronizable: synchronizable)
         
-        guard let pk = privateKey, let sig = privateSignature  else {
+        guard let pk = privateKey, let sig = privateSignature else {
             if privateKey == nil {
                 log.error("Couldn't find private key in keychain \(label)")
                 throw SHKeychain.Error.itemNotFound("\(label).key")
@@ -171,19 +170,20 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         synchronizable: Bool,
         force: Bool = false
     ) throws {
-        do {
-            try SHKeychain.storeKey(privateKey, label: label + ".key", synchronizable: synchronizable)
-            try SHKeychain.storeKey(privateSignature, label: label + ".signature", synchronizable: synchronizable)
-        } catch SHKeychain.Error.unexpectedStatus(let status) {
-            if status == -25299 && force == true {
-                try? Self.deleteKeysInKeychain(withLabel: label, synchronizable: synchronizable)
-                
-                try SHKeychain.storeKey(privateKey, label: label + ".key", synchronizable: synchronizable)
-                try SHKeychain.storeKey(privateSignature, label: label + ".signature", synchronizable: synchronizable)
-            } else {
-                throw SHKeychain.Error.unexpectedStatus(status)
-            }
-        }
+        
+        try Self.storeKeyInKeychain(
+            privateKey,
+            label: label,
+            synchronizable: synchronizable,
+            force: force
+        )
+        try Self.storeSignatureInKeychain(
+            privateSignature,
+            label: label,
+            synchronizable: synchronizable,
+            force: force
+        )
+        
 #if DEBUG
         let publicSignatureData = privateSignature.publicKey.derRepresentation
         var identifier = SHHash.stringDigest(for: publicSignatureData)
@@ -221,6 +221,56 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
             key: privateKey.derRepresentation.base64EncodedString(),
             signature: privateSignature.derRepresentation.base64EncodedString()
         )
+    }
+}
+
+extension SHLocalCryptoUser {
+    
+    public static func keysInKeychain(
+        label: String,
+        synchronizable: Bool
+    ) throws -> (P256.KeyAgreement.PrivateKey?, P256.Signing.PrivateKey?) {
+        
+        let privateKey = try SHKeychain.retrieveKey(label: label + ".key", synchronizable: synchronizable) as P256.KeyAgreement.PrivateKey?
+        let privateSignature = try SHKeychain.retrieveKey(label: label + ".signature", synchronizable: synchronizable) as P256.Signing.PrivateKey?
+        
+        return (privateKey, privateSignature)
+    }
+    
+    public static func storeKeyInKeychain(
+        _ key: P256.KeyAgreement.PrivateKey,
+        label: String,
+        synchronizable: Bool,
+        force: Bool
+    ) throws {
+        do {
+            try SHKeychain.storeKey(key, label: label + ".key", synchronizable: synchronizable)
+        } catch SHKeychain.Error.unexpectedStatus(let status) {
+            if status == -25299 && force == true {
+                try? Self.deleteKeysInKeychain(withLabel: label + ".key", synchronizable: synchronizable)
+                try SHKeychain.storeKey(key, label: label + ".key", synchronizable: synchronizable)
+            } else {
+                throw SHKeychain.Error.unexpectedStatus(status)
+            }
+        }
+    }
+    
+    public static func storeSignatureInKeychain(
+        _ signature: P256.Signing.PrivateKey,
+        label: String,
+        synchronizable: Bool,
+        force: Bool
+    ) throws {
+        do {
+            try SHKeychain.storeKey(signature, label: label + ".signature", synchronizable: synchronizable)
+        } catch SHKeychain.Error.unexpectedStatus(let status) {
+            if status == -25299 && force == true {
+                try? Self.deleteKeysInKeychain(withLabel: label + ".signature", synchronizable: synchronizable)
+                try SHKeychain.storeKey(signature, label: label + ".signature", synchronizable: synchronizable)
+            } else {
+                throw SHKeychain.Error.unexpectedStatus(status)
+            }
+        }
     }
 }
 
@@ -286,4 +336,5 @@ extension SHUserContext {
             signedBy: senderPublicSignature
         )
     }
+    
 }
