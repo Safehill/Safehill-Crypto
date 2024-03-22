@@ -99,7 +99,7 @@ public struct SHKeychain {
         // Describe the add operation.
         let query = [kSecClass: kSecClassKey,
                      kSecAttrApplicationLabel: label,
-                     kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+                     kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
                      kSecUseDataProtectionKeychain: true,
                      kSecValueRef: secKey] as [String: Any]
 
@@ -114,7 +114,7 @@ public struct SHKeychain {
         // Treat the key data as a generic password.
         let query = [kSecClass: kSecClassGenericPassword,
                      kSecAttrAccount: account,
-                     kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+                     kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
                      kSecUseDataProtectionKeychain: true,
                      kSecValueData: key.rawRepresentation] as [String: Any]
 
