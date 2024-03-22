@@ -97,11 +97,13 @@ public struct SHKeychain {
         }
         
         // Describe the add operation.
-        let query = [kSecClass: kSecClassKey,
-                     kSecAttrApplicationLabel: label,
-                     kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
-                     kSecUseDataProtectionKeychain: true,
-                     kSecValueRef: secKey] as [String: Any]
+        let query = [
+            kSecClass: kSecClassKey,
+            kSecAttrApplicationLabel: label,
+            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrSynchronizable: true,
+            kSecValueRef: secKey
+        ] as [String: Any]
 
         // Add the key to the keychain.
         let status = SecItemAdd(query as CFDictionary, nil)
@@ -112,11 +114,13 @@ public struct SHKeychain {
     
     static func storeKey<T: GenericPasswordConvertible>(_ key: T, account: String) throws {
         // Treat the key data as a generic password.
-        let query = [kSecClass: kSecClassGenericPassword,
-                     kSecAttrAccount: account,
-                     kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
-                     kSecUseDataProtectionKeychain: true,
-                     kSecValueData: key.rawRepresentation] as [String: Any]
+        let query = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: account,
+            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrSynchronizable: true,
+            kSecValueData: key.rawRepresentation
+        ] as [String: Any]
 
         // Add the key data.
         let status = SecItemAdd(query as CFDictionary, nil)
@@ -127,11 +131,13 @@ public struct SHKeychain {
     
     static func retrieveKey<T: SecKeyConvertible>(label: String) throws -> T? {
         // Seek an elliptic-curve key with a given label.
-        let query = [kSecClass: kSecClassKey,
-                     kSecAttrApplicationLabel: label,
-                     kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
-                     kSecUseDataProtectionKeychain: true,
-                     kSecReturnRef: true] as [String: Any]
+        let query = [
+            kSecClass: kSecClassKey,
+            kSecAttrApplicationLabel: label,
+            kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrSynchronizable: true,
+            kSecReturnRef: true
+        ] as [String: Any]
 
         // Find and cast the result as a SecKey instance.
         var item: CFTypeRef?
@@ -153,10 +159,12 @@ public struct SHKeychain {
     
     static func retrieveKey<T: GenericPasswordConvertible>(account: String) throws -> T? {
         // Seek a generic password with the given account.
-        let query = [kSecClass: kSecClassGenericPassword,
-                     kSecAttrAccount: account,
-                     kSecUseDataProtectionKeychain: true,
-                     kSecReturnData: true] as [String: Any]
+        let query = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: account,
+            kSecAttrSynchronizable: true,
+            kSecReturnData: true
+        ] as [String: Any]
 
         // Find and cast the result as data.
         var item: CFTypeRef?
