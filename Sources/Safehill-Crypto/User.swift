@@ -137,9 +137,12 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
     }
     
 #if !os(Linux)
-    public init(usingKeychainEntryWithLabel label: String) throws {
-        let privateKey = try SHKeychain.retrieveKey(label: label + ".key") as P256.KeyAgreement.PrivateKey?
-        let privateSignature = try SHKeychain.retrieveKey(label: label + ".signature") as P256.Signing.PrivateKey?
+    public init(
+        usingKeychainEntryWithLabel label: String,
+        synchronizable: Bool
+    ) throws {
+        let privateKey = try SHKeychain.retrieveKey(label: label + ".key", synchronizable: synchronizable) as P256.KeyAgreement.PrivateKey?
+        let privateSignature = try SHKeychain.retrieveKey(label: label + ".signature", synchronizable: synchronizable) as P256.Signing.PrivateKey?
         
         guard let pk = privateKey, let sig = privateSignature  else {
             if privateKey == nil {
@@ -163,16 +166,20 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         self.init(key: pk, signature: sig)
     }
     
-    public func saveKeysToKeychain(withLabel label: String, force: Bool = false) throws {
+    public func saveKeysToKeychain(
+        withLabel label: String,
+        synchronizable: Bool,
+        force: Bool = false
+    ) throws {
         do {
-            try SHKeychain.storeKey(privateKey, label: label + ".key")
-            try SHKeychain.storeKey(privateSignature, label: label + ".signature")
+            try SHKeychain.storeKey(privateKey, label: label + ".key", synchronizable: synchronizable)
+            try SHKeychain.storeKey(privateSignature, label: label + ".signature", synchronizable: synchronizable)
         } catch SHKeychain.Error.unexpectedStatus(let status) {
             if status == -25299 && force == true {
-                try? Self.deleteKeysInKeychain(withLabel: label)
+                try? Self.deleteKeysInKeychain(withLabel: label, synchronizable: synchronizable)
                 
-                try SHKeychain.storeKey(privateKey, label: label + ".key")
-                try SHKeychain.storeKey(privateSignature, label: label + ".signature")
+                try SHKeychain.storeKey(privateKey, label: label + ".key", synchronizable: synchronizable)
+                try SHKeychain.storeKey(privateSignature, label: label + ".signature", synchronizable: synchronizable)
             } else {
                 throw SHKeychain.Error.unexpectedStatus(status)
             }
@@ -181,18 +188,24 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         let publicSignatureData = privateSignature.publicKey.derRepresentation
         var identifier = SHHash.stringDigest(for: publicSignatureData)
         log.info("Saving keys in keychain \(label). Derived user identifier is \(identifier))")
-        let retrievedPrivateSignature = try SHKeychain.retrieveKey(label: label + ".signature") as P256.Signing.PrivateKey?
+        let retrievedPrivateSignature = try SHKeychain.retrieveKey(
+            label: label + ".signature",
+            synchronizable: synchronizable
+        ) as P256.Signing.PrivateKey?
         identifier = SHHash.stringDigest(for: retrievedPrivateSignature!.publicKey.derRepresentation)
         log.info("Derived user identifier for current item in keychain \(label) is \(identifier))")
 #endif
     }
     
-    public static func deleteKeysInKeychain(withLabel label: String) throws {
+    public static func deleteKeysInKeychain(withLabel label: String, synchronizable: Bool) throws {
         try SHKeychain.removeKey(withLabel: label + ".key")
         try SHKeychain.removeKey(withLabel: label + ".signature")
 #if DEBUG
         log.info("Successfully deleted key in keychain \(label)")
-        if (try? SHKeychain.retrieveKey(label: label + ".signature") as P256.Signing.PrivateKey?) != nil {
+        if (try? SHKeychain.retrieveKey(
+            label: label + ".signature",
+            synchronizable: synchronizable
+        ) as P256.Signing.PrivateKey?) != nil {
             fatalError("Key is still in the keychain")
         }
 #endif

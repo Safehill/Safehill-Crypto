@@ -62,7 +62,7 @@ public struct SHSignature {
         let privateKey = P256.Signing.PrivateKey()
 #if !os(Linux)
         if let account = account {
-            try SHKeychain.storeKey(privateKey, label: account)
+            try SHKeychain.storeKey(privateKey, label: account, synchronizable: false)
         }
 #endif
         return try privateKey.signature(for: transactionData)
@@ -94,7 +94,7 @@ public struct SHSignature {
             let privateKey = try SecureEnclave.P256.Signing.PrivateKey(accessControl: accessControl,
                                                                        authenticationContext: authContext)
             if let account = account {
-                try SHKeychain.storeKey(privateKey, account: account)
+                try SHKeychain.storeKey(privateKey, account: account, synchronizable: false)
             }
             let digest512 = SHA512.hash(data: transactionData)
             return try! privateKey.signature(for: Data(digest512))

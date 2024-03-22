@@ -224,9 +224,9 @@ final class SafehillCryptoTests: XCTestCase {
     
     func _testKeychain() throws {
         let alice = SHLocalCryptoUser()
-        try alice.saveKeysToKeychain(withLabel: "alice")
+        try alice.saveKeysToKeychain(withLabel: "alice", synchronizable: false)
         
-        let alice2 = try SHLocalCryptoUser(usingKeychainEntryWithLabel: "alice")
+        let alice2 = try SHLocalCryptoUser(usingKeychainEntryWithLabel: "alice", synchronizable: false)
         
         XCTAssertTrue(alice.publicKey.compactRepresentation == alice2.publicKey.compactRepresentation)
         XCTAssertTrue(alice.signature.compactRepresentation == alice2.signature.compactRepresentation)
