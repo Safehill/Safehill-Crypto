@@ -194,10 +194,16 @@ public struct SHKeychain {
         }
     }
     
-    static func removeKey(withLabel label: String) throws {
+    static func removeKey(withLabel label: String, synchronizable: Bool) throws {
         // Describe the remove operation.
-        let query = [kSecClass: kSecClassKey,
-                     kSecAttrApplicationLabel: label] as [String: Any]
+        let query = [
+            kSecClass: kSecClassKey,
+            kSecAttrApplicationLabel: label,
+            kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrSynchronizable: synchronizable,
+            kSecUseDataProtectionKeychain: true,
+            kSecReturnRef: true
+        ] as [String: Any]
         
         let status = SecItemDelete(query as CFDictionary)
         guard status != errSecItemNotFound else { throw SHKeychain.Error.itemNotFound(label) }
@@ -206,10 +212,15 @@ public struct SHKeychain {
         }
     }
     
-    static func removePassword(forAccount account: String) throws {
+    static func removePassword(forAccount account: String, synchronizable: Bool) throws {
         // Describe the remove operation.
-        let query = [kSecClass: kSecClassGenericPassword,
-                     kSecAttrAccount: account]  as [String: Any]
+        let query = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: account,
+            kSecAttrSynchronizable: synchronizable,
+            kSecUseDataProtectionKeychain: true,
+            kSecReturnData: true
+        ]  as [String: Any]
         
         let status = SecItemDelete(query as CFDictionary)
         guard status != errSecItemNotFound else { throw SHKeychain.Error.itemNotFound(account) }

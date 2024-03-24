@@ -198,8 +198,8 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
     }
     
     public static func deleteKeysInKeychain(withLabel label: String, synchronizable: Bool) throws {
-        try SHKeychain.removeKey(withLabel: label + ".key")
-        try SHKeychain.removeKey(withLabel: label + ".signature")
+        try SHKeychain.removeKey(withLabel: label + ".key", synchronizable: synchronizable)
+        try SHKeychain.removeKey(withLabel: label + ".signature", synchronizable: synchronizable)
 #if DEBUG
         log.info("Successfully deleted key in keychain \(label)")
         if (try? SHKeychain.retrieveKey(
