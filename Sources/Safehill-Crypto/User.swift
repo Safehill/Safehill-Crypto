@@ -145,13 +145,13 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         
         guard let pk = privateKey, let sig = privateSignature else {
             if privateKey == nil {
-                log.error("Couldn't find private key in keychain \(label)")
+                log.error("Couldn't find private key in keychain \(label). synchronizable=\(synchronizable)")
                 throw SHKeychain.Error.itemNotFound("\(label).key")
             } else if privateSignature == nil {
-                log.error("Couldn't find private signature in keychain \(label)")
+                log.error("Couldn't find private signature in keychain \(label). synchronizable=\(synchronizable)")
                 throw SHKeychain.Error.itemNotFound("\(label).signature")
             } else {
-                log.error("Couldn't find private key and private signature in keychain \(label)")
+                log.error("Couldn't find private key and private signature in keychain \(label). synchronizable=\(synchronizable)")
                 throw SHKeychain.Error.itemNotFound("\(label)(.key|.signature)")
             }
         }
@@ -159,7 +159,7 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
 #if DEBUG
         let publicSignatureData = sig.publicKey.derRepresentation
         let identifier = SHHash.stringDigest(for: publicSignatureData)
-        log.info("Found keys in keychain \(label). Derived user identifier is \(identifier))")
+        log.info("Found keys in keychain \(label) synchronizable=\(synchronizable). Derived user identifier is \(identifier))")
 #endif
         
         self.init(key: pk, signature: sig)
