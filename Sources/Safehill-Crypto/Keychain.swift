@@ -1,6 +1,6 @@
 //
 //  Keychain.swift
-//  
+//
 //
 //  Created by Gennaro Frazzingaro on 8/29/21.
 //
@@ -12,7 +12,7 @@ import Foundation
 import CryptoKit
 #endif
 
-protocol SecKeyConvertible: CustomStringConvertible {
+protocol SecKeyConvertible {
     /// Creates a key from an X9.63 representation.
     init<Bytes>(x963Representation: Bytes) throws where Bytes: ContiguousBytes
     
@@ -34,7 +34,7 @@ extension P521.Signing.PrivateKey: SecKeyConvertible {}
 extension P521.KeyAgreement.PrivateKey: SecKeyConvertible {}
 
 
-protocol GenericPasswordConvertible: CustomStringConvertible {
+protocol GenericPasswordConvertible {
     /// Creates a key from a raw representation.
     init<D>(rawRepresentation data: D) throws where D: ContiguousBytes
     

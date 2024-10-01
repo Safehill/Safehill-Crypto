@@ -1,6 +1,6 @@
 //
 //  EncryptedData.swift
-//  
+//
 //
 //  Created by Gennaro Frazzingaro on 9/22/21.
 //
@@ -27,4 +27,3 @@ public struct SHEncryptedData {
         try self.init(privateSecret: secret, clearData: clearData)
     }
 }
-
