@@ -226,6 +226,7 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
 
 extension SHLocalCryptoUser {
     
+#if !os(Linux)
     public static func keysInKeychain(
         label: String,
         synchronizable: Bool
@@ -272,6 +273,7 @@ extension SHLocalCryptoUser {
             }
         }
     }
+#endif
 }
 
 
