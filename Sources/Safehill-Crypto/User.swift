@@ -287,6 +287,7 @@ public struct SHUserContext {
 
 
 extension SHUserContext {
+    
     public func shareable(data: Data, protocolSalt: Data, with user: SHCryptoUser) throws -> SHShareablePayload {
         log.info("encrypting data for user with public key \(user.publicKeyData.base64EncodedString()) public signature \(user.publicSignatureData.base64EncodedString())")
         let ephemeralKey = P256.KeyAgreement.PrivateKey()
@@ -336,6 +337,19 @@ extension SHUserContext {
             encryptionKey: myUser.privateKey,
             protocolSalt: protocolSalt,
             signedBy: senderPublicSignature
+        )
+    }
+    
+    public func decrypt(
+        _ sealedMessage: SHShareablePayload,
+        protocolSalt: Data,
+        from theirSigningKeyData: Data
+    ) throws -> Data {
+        return try SHCypher.decrypt(
+            sealedMessage,
+            encryptionKeyData: self.myUser.privateKeyData,
+            protocolSalt: protocolSalt,
+            from: theirSigningKeyData
         )
     }
     
