@@ -61,6 +61,10 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         case invalidSignature(Any)
     }
     
+    public enum SerializationError: CustomNSError, LocalizedError {
+        case unknownError(String)
+    }
+    
     enum CodingKeys: String, CodingKey {
         case privateKeyData
         case privateSignatureData
@@ -221,6 +225,83 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
             key: privateKey.derRepresentation.base64EncodedString(),
             signature: privateSignature.derRepresentation.base64EncodedString()
         )
+    }
+    
+    public func encryptPrivateKeys(using symmetricKeyData: Data) throws -> (encryptedBlob: Data, salt: Data) {
+        
+        guard let saltData = SHCypher.generateRandomBytes(length: 32) else {
+            throw SerializationError.unknownError("Failed to generate random salt")
+        }
+
+        let inputKeyMaterial = SymmetricKey(data: symmetricKeyData)
+        let info = "safehill-passkey-backup-v1".data(using: .utf8) ?? Data()
+
+        let encryptionKey = HKDF<SHA256>.deriveKey(
+            inputKeyMaterial: inputKeyMaterial,
+            salt: saltData,
+            info: info,
+            outputByteCount: 32
+        )
+
+        // Step 3: Combine and encrypt private keys
+        // Combine both private keys (key agreement key + signing key)
+        let privateKeysData = self.privateKeyData + self.privateSignatureData
+        
+        // Ensure the combined data split point is the expected one
+        let keyAgreementKeySize = 138
+        let signingKeySize = 138
+
+        guard privateKeysData.count == keyAgreementKeySize + signingKeySize else {
+            throw SerializationError.unknownError("generated private keys data is not the expected size")
+        }
+
+        let encryptedData = try SHCypher.encrypt(privateKeysData, using: encryptionKey)
+
+        return (encryptedBlob: encryptedData, salt: saltData)
+    }
+    
+    public static func fromEncryptedPrivateKeys(
+        encryptedBlob: Data,
+        salt: Data,
+        symmetricKeyData: Data
+    ) throws -> SHLocalCryptoUser {
+        log.debug("decrypting recovered keys")
+
+        let inputKeyMaterial = SymmetricKey(data: symmetricKeyData)
+        let info = "safehill-passkey-backup-v1".data(using: .utf8) ?? Data()
+
+        let decryptionKey = HKDF<SHA256>.deriveKey(
+            inputKeyMaterial: inputKeyMaterial,
+            salt: salt,
+            info: info,
+            outputByteCount: 32
+        )
+
+        // Decrypt keys using framework's decryption method
+        let decryptedKeysData = try SHCypher.decrypt(data: encryptedBlob, using: decryptionKey)
+
+        log.debug("keys decrypted successfully")
+
+        // Initialize crypto user from decrypted keys
+        
+        // The decrypted data contains both private keys concatenated
+        // - P256 private keys in DER format are 138 bytes (includes ASN.1 encoding metadata)
+        let keyAgreementKeySize = 138
+        let signingKeySize = 138
+
+        guard decryptedKeysData.count == keyAgreementKeySize + signingKeySize else {
+            throw InitializationError.invalidKey(decryptedKeysData)
+        }
+
+        let keyAgreementKeyData = decryptedKeysData.subdata(in: 0..<keyAgreementKeySize)
+        let signingKeyData = decryptedKeysData.subdata(in: keyAgreementKeySize..<(keyAgreementKeySize + signingKeySize))
+
+        // Reconstruct private keys
+        let keyAgreementKey = try P256.KeyAgreement.PrivateKey(derRepresentation: keyAgreementKeyData)
+        let signingKey = try P256.Signing.PrivateKey(derRepresentation: signingKeyData)
+
+        // Initialize and return crypto user
+        return SHLocalCryptoUser(key: keyAgreementKey, signature: signingKey)
     }
 }
 
