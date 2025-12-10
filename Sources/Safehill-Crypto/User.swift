@@ -61,6 +61,10 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
         case invalidSignature(Any)
     }
     
+    public enum SerializationError: CustomNSError, LocalizedError {
+        case unknownError(String)
+    }
+    
     enum CodingKeys: String, CodingKey {
         case privateKeyData
         case privateSignatureData
@@ -221,6 +225,31 @@ public struct SHLocalCryptoUser : _SHCryptoUser, SHCryptoUser, Codable {
             key: privateKey.derRepresentation.base64EncodedString(),
             signature: privateSignature.derRepresentation.base64EncodedString()
         )
+    }
+    
+    public func encryptPrivateKeys(using symmetricKeyData: Data) throws -> (encryptedBlob: Data, salt: Data) {
+        
+        guard let saltData = SHCypher.generateRandomBytes(length: 32) else {
+            throw SerializationError.unknownError("Failed to generate random salt")
+        }
+
+        let inputKeyMaterial = SymmetricKey(data: symmetricKeyData)
+        let info = "safehill-passkey-backup-v1".data(using: .utf8) ?? Data()
+
+        let encryptionKey = HKDF<SHA256>.deriveKey(
+            inputKeyMaterial: inputKeyMaterial,
+            salt: saltData,
+            info: info,
+            outputByteCount: 32
+        )
+
+        // Step 3: Combine and encrypt private keys
+        // Combine both private keys (key agreement key + signing key)
+        let privateKeysData = self.privateKeyData + self.privateSignatureData
+
+        let encryptedData = try SHCypher.encrypt(privateKeysData, using: encryptionKey)
+
+        return (encryptedBlob: encryptedData, salt: saltData)
     }
 }
 
