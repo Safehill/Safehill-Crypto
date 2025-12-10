@@ -345,4 +345,22 @@ final class SafehillCryptoTests: XCTestCase {
         XCTAssertEqual(secret.rawRepresentation, decryptedSecret2)
         XCTAssertEqual(SymmetricKey(data: secret.rawRepresentation), SymmetricKey(data: decryptedSecret2))
     }
+    
+    func testEncryptDecryptUser() throws {
+        let user = SHLocalCryptoUser()
+
+        let credentialsId = SHCypher.generateRandomBytes()!
+        let (encryptedBlob, salt) = try user.encryptPrivateKeys(using: credentialsId)
+
+        let decryptedUser = try SHLocalCryptoUser.fromEncryptedPrivateKeys(
+            encryptedBlob: encryptedBlob,
+            salt: salt,
+            symmetricKeyData: credentialsId
+        )
+
+        // Verify the decrypted user has the same keys
+        XCTAssertEqual(user.publicKeyData, decryptedUser.publicKeyData)
+        XCTAssertEqual(user.publicSignatureData, decryptedUser.publicSignatureData)
+        XCTAssertEqual(user.identifier, decryptedUser.identifier)
+    }
 }
